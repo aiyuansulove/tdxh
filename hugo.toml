@@ -1,0 +1,49 @@
+baseURL = '/'
+title = '天地鲟鳇'
+languageCode = 'zh-cn'
+ignoreLogs = ['warning-goldmark-raw-html', 'warning-kind-taxonomy']
+
+[build]
+  writeStats = true
+
+[params]
+  description = "传承千年鱼文化 · 品味自然珍馐"
+  logo = "/images/天地鲟鳇logo.jpg"
+
+[menu]
+  [[menu.main]]
+    name = "品牌故事"
+    url = "/#story"
+    weight = 1
+  [[menu.main]]
+    name = "产品展示"
+    url = "/#products"
+    weight = 2
+  [[menu.main]]
+    name = "匠心工艺"
+    url = "/#craft"
+    weight = 3
+  [[menu.main]]
+    name = "产地溯源"
+    url = "/#origin"
+    weight = 4
+  [[menu.main]]
+    name = "鲟鱼文化"
+    url = "/#culture"
+    weight = 5
+  [[menu.main]]
+    name = "匠人团队"
+    url = "/#team"
+    weight = 6
+  [[menu.main]]
+    name = "品牌印记"
+    url = "/#brandip"
+    weight = 7
+  [[menu.main]]
+    name = "社会责任"
+    url = "/#responsibility"
+    weight = 8
+  [[menu.main]]
+    name = "新闻动态"
+    url = "/#news"
+    weight = 9
