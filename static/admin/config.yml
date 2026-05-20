@@ -1,0 +1,43 @@
+backend:
+  name: github
+  repo: aiyuansulove/tdxh
+  branch: master
+  commit_messages:
+    create: 'Create {{collection}} "{{slug}}"'
+    update: 'Update {{collection}} "{{slug}}"'
+    delete: 'Delete {{collection}} "{{slug}}"'
+    uploadMedia: 'Upload "{{path}}"'
+    deleteMedia: 'Delete "{{path}}"'
+
+media_folder: "static/images"
+public_folder: "/images"
+
+collections:
+  - name: "news"
+    label: "新闻动态"
+    folder: "content/news"
+    create: true
+    slug: "{{slug}}"
+    fields:
+      - {label: "标题", name: "title", widget: "string"}
+      - {label: "日期", name: "date", widget: "datetime", format: "YYYY-MM-DD"}
+      - {label: "内容", name: "body", widget: "markdown"}
+
+  - name: "products"
+    label: "产品展示"
+    folder: "content/products"
+    create: true
+    slug: "{{slug}}"
+    fields:
+      - {label: "标题", name: "title", widget: "string"}
+      - {label: "内容", name: "body", widget: "markdown"}
+
+  - name: "about"
+    label: "关于我们"
+    folder: "content"
+    files:
+      - name: "about"
+        label: "关于我们"
+        file: "content/about.md"
+        fields:
+          - {label: "内容", name: "body", widget: "markdown"}
