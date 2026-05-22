@@ -13,8 +13,9 @@ local_backend: false
 
 media_folder: "static/images"
 public_folder: "/tdxh/images"
-display_url: https://aiyuansulove.github.io/tdxh
-site_url: https://aiyuansulove.github.io/tdxh
+base_url: "https://aiyuansulove.github.io/tdxh"
+site_url: "https://aiyuansulove.github.io/tdxh"
+display_url: "https://aiyuansulove.github.io/tdxh"
 
 collections:
   - name: "news"
