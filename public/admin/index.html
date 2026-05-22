@@ -7,6 +7,13 @@
 </head>
 <body>
     <div id="nc-root"></div>
-    <script src="https://cdn.jsdelivr.net/npm/decap-cms@^3.0.0/dist/decap-cms.js"></script>
+    <script>
+        // Ensure DOM is ready before loading CMS
+        document.addEventListener('DOMContentLoaded', function() {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/decap-cms@^3.0.0/dist/decap-cms.js';
+            document.head.appendChild(script);
+        });
+    </script>
 </body>
 </html>
