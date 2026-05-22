@@ -8,25 +8,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="{{ .Site.BaseURL }}css/style.css">
 </head>
 <body>
     <header class="site-header" id="siteHeader">
-        <a href="/" class="logo">
-            <img src="/images/天地鲟鳇logo.jpg" alt="天地鲟鳇" class="logo-img">
+        <a href="{{ .Site.BaseURL }}" class="logo">
+            <img src="{{ .Site.BaseURL }}images/天地鲟鳇logo.jpg" alt="天地鲟鳇" class="logo-img">
             <span>天地鲟鳇</span>
         </a>
         <ul class="nav-menu">
-            <li><a href="/#story">品牌故事</a></li>
-            <li><a href="/#products">产品展示</a></li>
-            <li><a href="/#craft">匠心工艺</a></li>
-            <li><a href="/#origin">产地溯源</a></li>
-            <li><a href="/#culture">鲟鱼文化</a></li>
-            <li><a href="/#team">匠人团队</a></li>
-            <li><a href="/#brandip">品牌印记</a></li>
-            <li><a href="/#responsibility">社会责任</a></li>
-            <li><a href="/#news">新闻动态</a></li>
-            <li><a href="/#contact" class="nav-cta">开团</a></li>
+            <li><a href="{{ .Site.BaseURL }}#story">品牌故事</a></li>
+            <li><a href="{{ .Site.BaseURL }}#products">产品展示</a></li>
+            <li><a href="{{ .Site.BaseURL }}#craft">匠心工艺</a></li>
+            <li><a href="{{ .Site.BaseURL }}#origin">产地溯源</a></li>
+            <li><a href="{{ .Site.BaseURL }}#culture">鲟鱼文化</a></li>
+            <li><a href="{{ .Site.BaseURL }}#team">匠人团队</a></li>
+            <li><a href="{{ .Site.BaseURL }}#brandip">品牌印记</a></li>
+            <li><a href="{{ .Site.BaseURL }}#responsibility">社会责任</a></li>
+            <li><a href="{{ .Site.BaseURL }}#news">新闻动态</a></li>
+            <li><a href="{{ .Site.BaseURL }}#contact" class="nav-cta">开团</a></li>
         </ul>
         <button class="nav-toggle" id="navToggle" aria-label="菜单">
             <span></span><span></span><span></span>
@@ -35,16 +35,16 @@
 
     <div class="mobile-menu" id="mobileMenu">
         <button class="mobile-close" id="mobileClose" aria-label="关闭">x</button>
-        <a href="/#story" onclick="closeMobileMenu()">品牌故事</a>
-        <a href="/#products" onclick="closeMobileMenu()">产品展示</a>
-        <a href="/#craft" onclick="closeMobileMenu()">匠心工艺</a>
-        <a href="/#origin" onclick="closeMobileMenu()">产地溯源</a>
-        <a href="/#culture" onclick="closeMobileMenu()">鲟鱼文化</a>
-        <a href="/#team" onclick="closeMobileMenu()">匠人团队</a>
-        <a href="/#brandip" onclick="closeMobileMenu()">品牌印记</a>
-        <a href="/#responsibility" onclick="closeMobileMenu()">社会责任</a>
-        <a href="/#news" onclick="closeMobileMenu()">新闻动态</a>
-        <a href="/#contact" onclick="closeMobileMenu()">开团</a>
+        <a href="{{ .Site.BaseURL }}#story" onclick="closeMobileMenu()">品牌故事</a>
+        <a href="{{ .Site.BaseURL }}#products" onclick="closeMobileMenu()">产品展示</a>
+        <a href="{{ .Site.BaseURL }}#craft" onclick="closeMobileMenu()">匠心工艺</a>
+        <a href="{{ .Site.BaseURL }}#origin" onclick="closeMobileMenu()">产地溯源</a>
+        <a href="{{ .Site.BaseURL }}#culture" onclick="closeMobileMenu()">鲟鱼文化</a>
+        <a href="{{ .Site.BaseURL }}#team" onclick="closeMobileMenu()">匠人团队</a>
+        <a href="{{ .Site.BaseURL }}#brandip" onclick="closeMobileMenu()">品牌印记</a>
+        <a href="{{ .Site.BaseURL }}#responsibility" onclick="closeMobileMenu()">社会责任</a>
+        <a href="{{ .Site.BaseURL }}#news" onclick="closeMobileMenu()">新闻动态</a>
+        <a href="{{ .Site.BaseURL }}#contact" onclick="closeMobileMenu()">开团</a>
     </div>
 
     <main class="main-content">
@@ -61,20 +61,20 @@
             <div class="footer-col">
                 <div class="footer-col-title">快速导航</div>
                 <ul>
-                    <li><a href="/#story">品牌故事</a></li>
-                    <li><a href="/#products">产品展示</a></li>
-                    <li><a href="/#craft">匠心工艺</a></li>
-                    <li><a href="/#origin">产地溯源</a></li>
+                    <li><a href="{{ .Site.BaseURL }}#story">品牌故事</a></li>
+                    <li><a href="{{ .Site.BaseURL }}#products">产品展示</a></li>
+                    <li><a href="{{ .Site.BaseURL }}#craft">匠心工艺</a></li>
+                    <li><a href="{{ .Site.BaseURL }}#origin">产地溯源</a></li>
                 </ul>
             </div>
             <div class="footer-col">
                 <div class="footer-col-title">更多了解</div>
                 <ul>
-                    <li><a href="/#culture">鲟鱼文化</a></li>
-                    <li><a href="/#team">匠人团队</a></li>
-                    <li><a href="/#brandip">品牌印记</a></li>
-                    <li><a href="/#responsibility">社会责任</a></li>
-                    <li><a href="/news/">新闻动态</a></li>
+                    <li><a href="{{ .Site.BaseURL }}#culture">鲟鱼文化</a></li>
+                    <li><a href="{{ .Site.BaseURL }}#team">匠人团队</a></li>
+                    <li><a href="{{ .Site.BaseURL }}#brandip">品牌印记</a></li>
+                    <li><a href="{{ .Site.BaseURL }}#responsibility">社会责任</a></li>
+                    <li><a href="{{ .Site.BaseURL }}news/">新闻动态</a></li>
                 </ul>
             </div>
             <div class="footer-col">
@@ -92,6 +92,6 @@
         </div>
     </footer>
 
-    <script src="/js/main.js"></script>
+    <script src="{{ .Site.BaseURL }}js/main.js"></script>
 </body>
 </html>
