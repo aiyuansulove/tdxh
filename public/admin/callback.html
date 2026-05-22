@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0;url=https://aiyuansulove.github.io/tdxh/admin/">
+    <title>授权中...</title>
+</head>
+<body>
+    <p>正在完成 GitHub 授权，请稍候...</p>
+    <script>
+        // Extract code from URL and redirect
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        if (code) {
+            window.location.href = 'https://aiyuansulove.github.io/tdxh/admin/#authCallback?code=' + code;
+        } else {
+            window.location.href = 'https://aiyuansulove.github.io/tdxh/admin/';
+        }
+    </script>
+</body>
+</html>
