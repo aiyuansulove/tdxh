@@ -179,9 +179,10 @@
     <p class="section-subtitle reveal">LATEST NEWS & UPDATES</p>
     <div class="divider-gold reveal"></div>
     <div class="news-grid">
-        {{ range first 3 $newsPages.ByDate.Reverse }}
+        {{ range $idx, $page := first 3 $newsPages.ByDate.Reverse }}
+        {{ $newsImages := slice "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=250&fit=crop" "https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=400&h=250&fit=crop" "https://images.unsplash.com/photo-1516912481808-3406841bd33c?w=400&h=250&fit=crop" }}
         <div class="news-card reveal">
-            <img class="news-img" src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400&h=250&fit=crop" alt="新闻图片" loading="lazy">
+            <img class="news-img" src="{{ index $newsImages $idx }}" alt="新闻图片" loading="lazy">
             <div class="news-content">
                 <div class="news-date">{{ .Date.Format "2006年1月2日" }}</div>
                 <h3 class="news-title">{{ .Title }}</h3>

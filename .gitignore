@@ -21,3 +21,10 @@ Thumbs.db
 *.dll
 *.so
 *.dylib
+
+# Local dev data
+static/data/
+
+# Environment / secrets
+.env
+*.env

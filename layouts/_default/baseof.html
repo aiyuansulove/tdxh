@@ -9,6 +9,16 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ "css/style.css" | relURL }}">
+    <!-- SEO / Open Graph -->
+    <meta property="og:title" content="{{ .Title }} - {{ .Site.Title }}">
+    <meta property="og:description" content="{{ .Site.Params.description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ .Permalink }}">
+    <meta property="og:image" content="{{ "images/天地鲟鳇logo.jpg" | absURL }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ .Title }} - {{ .Site.Title }}">
+    <meta name="twitter:description" content="{{ .Site.Params.description }}">
+    <meta name="twitter:image" content="{{ "images/天地鲟鳇logo.jpg" | absURL }}">
 </head>
 <body>
     <header class="site-header" id="siteHeader">

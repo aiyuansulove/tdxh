@@ -222,7 +222,7 @@ async function saveArticle(){
     articleState.sha = r.content.sha; state.changed=false;
     toast('✅ 保存成功！GitHub Actions 正在自动构建，1-3 分钟后网站更新', 'success');
   } catch(e){ toast('❌ 保存失败：'+e.message,'error'); }
-  finally { btn.disabled=false; btn.innerHTML='💾 保存'; $('editorSaveBtn').onclick=saveSection; }
+  finally { btn.disabled=false; btn.innerHTML='💾 保存'; /* keep saveArticle as handler - the caller openArticleEditor already sets onclick */ }
 }
 
 // ===== 新闻列表 =====
