@@ -98,7 +98,11 @@ const api = {
   headers(){ return { Authorization:'token '+TOKEN, Accept:'application/vnd.github.v3+json' }; },
   async req(m, p, b){
     const r = await fetch(CFG.api+p, { method:m, headers:this.headers(), body:b?JSON.stringify(b):null });
-    if(!r.ok){ const e=await r.json().catch(()=>({message:r.statusText})); throw new Error(e.message); }
+    if(!r.ok){ 
+      let msg = r.statusText;
+      try { const e = await r.json(); if (e.message) msg = e.message; } catch(_) {}
+      throw new Error(`[${r.status}] ${msg}`); 
+    }
     return r.status===204?null:r.json();
   },
   async get(path){
@@ -454,6 +458,7 @@ function collectData(sectionId){
 }
 
 // ===== 保存 =====
+// 🔥 v4 修复：自动处理 SHA 冲突，保存前强制刷新 SHA，失败后自动重试
 async function saveSection(){
   const id=state.editing;
   if(!id){ toast('⚠️ 没有打开的文件','error'); return; }
@@ -464,29 +469,52 @@ async function saveSection(){
   const json = JSON.stringify(data, null, 2) + '\n';
   const msg = $('commitMsg').value.trim() || '更新首页: '+(section.label||id);
   const btn=$('editorSaveBtn'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 保存中...';
-  try {
-    // 🔥 重新读取文件获取最新 SHA（防止图片上传导致的 SHA 过期）
+
+  // 最多重试 3 次
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const latest = await api.get(section.file);
-      state.sha = latest.sha;
-    } catch(refreshErr) {
-      // 文件可能还不存在（第一次创建）
-      state.sha = null;
+      // 每次重试时都重新读取最新 SHA
+      try {
+        const latest = await api.get(section.file);
+        state.sha = latest.sha;
+      } catch(refreshErr) {
+        // 文件还不存在（首次创建）
+        state.sha = null;
+      }
+
+      if (state.sha) {
+        await api.put(section.file, json, msg, state.sha);
+      } else {
+        const r = await api.create(section.file, json, msg);
+        state.sha = r.content.sha;
+      }
+      
+      state.changed=false;
+      toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站自动更新', 'success');
+      btn.disabled=false; btn.innerHTML='💾 保存';
+      return; // 成功，退出
+      
+    } catch(e) {
+      const errMsg = e.message || '';
+      console.error(`保存尝试 ${attempt+1}/3 失败:`, e);
+      
+      // SHA 冲突或 HTTP 409/422 → 重试
+      const isShaConflict = errMsg.includes('sha') || errMsg.includes('match') || 
+                            errMsg.includes('[409]') || errMsg.includes('[422]');
+      
+      if (isShaConflict && attempt < 2) {
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+      
+      // 其他错误或者重试用完，报告错误
+      toast('❌ 保存失败：' + errMsg, 'error');
+      btn.disabled=false; btn.innerHTML='💾 保存';
+      return;
     }
-    
-    if (state.sha) {
-      await api.put(section.file, json, msg, state.sha);
-    } else {
-      const r = await api.create(section.file, json, msg);
-      state.sha = r.content.sha;
-    }
-    state.changed=false;
-    toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站自动更新', 'success');
-  } catch(e){ 
-    console.error('保存出错详情:', e);
-    toast('❌ 保存失败：' + e.message, 'error'); 
   }
-  finally { btn.disabled=false; btn.innerHTML='💾 保存'; }
+  
+  btn.disabled=false; btn.innerHTML='💾 保存';
 }
 
 // ===== 认证 =====
