@@ -127,6 +127,11 @@ const api = {
     return d.map(i=>({name:i.name,path:i.path,type:i.type,sha:i.sha}));
   },
   async verify(){ const d=await this.req('GET','/user'); return d.login; },
+  async del(path, msg, sha){
+    return this.req('DELETE', `/repos/${CFG.owner}/${CFG.repo}/contents/${path}`, {
+      message:msg, sha, branch:CFG.branch
+    });
+  },
   async upload(file){
     return new Promise((rs,rj)=>{
       if(!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)){ rj(new Error('仅支持 JPG/PNG/GIF/WebP')); return; }
@@ -326,6 +331,11 @@ async function openArticleEditor(file){
     articleState = { sha:f.sha, path:file, parsed };
     const form = document.getElementById('sectionForm');
     form.innerHTML = `
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button id="artBackBtn" class="btn btn-outline" onclick="openNewsManager()">← 返回列表</button>
+        <button id="artDeleteBtn" class="btn btn-danger" style="margin-left:auto">🗑️ 删除本文</button>
+      </div>
+      <style>
       <style>
         #quillArticleContainer { display:flex; flex-direction:column; height:500px; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
         #quillArticleContainer .ql-toolbar { background:var(--bg-sidebar); border:none; border-bottom:1px solid var(--border); flex-shrink:0; }
@@ -416,6 +426,13 @@ async function openArticleEditor(file){
         }
       };
     }, 50);
+
+    // 绑定删除按钮
+    setTimeout(() => {
+      const delBtn = document.getElementById('artDeleteBtn');
+      if (delBtn) delBtn.onclick = () => deleteArticle(file);
+    }, 100);
+
   } catch(e){ toast('❌ 加载失败：'+e.message, 'error'); }
 }
 
@@ -460,12 +477,42 @@ async function openNewsManager(){
         <span style="color:var(--text2);font-size:.9em">共 ${items.length} 篇</span>
         <button id="createNewsBtn" class="btn btn-primary btn-sm" style="margin-left:auto">+ 新建文章</button></div>
       ${items.map(item=>`
-        <div class="form-array-item" style="cursor:pointer" onclick="openArticleEditor('${item.path}')">
+        <div class="form-array-item" style="cursor:pointer">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <div><strong>${esc(item.title)}</strong><br><span style="font-size:.78em;color:var(--text3)">${item.path}${item.date?' · '+item.date:''}</span></div>
-            <span style="color:var(--gold);font-size:.8em">✏️ 编辑</span></div></div>`).join('')}`;
+            <div style="flex:1;cursor:pointer" onclick="openArticleEditor('${item.path}')">
+              <strong>${esc(item.title)}</strong><br>
+              <span style="font-size:.78em;color:var(--text3)">${item.path}${item.date?' · '+item.date:''}</span>
+            </div>
+            <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="event.stopPropagation();deleteArticleFromList('${item.path}')">🗑️</button>
+          </div></div>`).join('')}`;
     $('createNewsBtn').addEventListener('click', createNewsArticle);
   } catch(e){ toast('❌ 加载失败：'+e.message,'error'); }
+}
+
+// ===== 删除文章 =====
+async function deleteArticle(path) {
+  if (!confirm('确定要删除这篇文章吗？此操作不可撤销。')) return;
+  const f = await api.get(path);
+  const btn = document.getElementById('artDeleteBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 删除中...'; }
+  try {
+    await api.del(path, '删除: ' + path.split('/').pop(), f.sha);
+    toast('✅ 文章已删除！','success');
+    openNewsManager();
+  } catch(e) {
+    toast('❌ 删除失败：'+e.message,'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🗑️ 删除本文'; }
+  }
+}
+
+async function deleteArticleFromList(path) {
+  if (!confirm('确定删除这篇文章吗？')) return;
+  const f = await api.get(path);
+  try {
+    await api.del(path, '删除: ' + path.split('/').pop(), f.sha);
+    toast('✅ 已删除','success');
+    openNewsManager();
+  } catch(e) { toast('❌ 删除失败：'+e.message,'error'); }
 }
 
 async function createNewsArticle(){
