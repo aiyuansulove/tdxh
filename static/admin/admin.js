@@ -9,6 +9,7 @@
  */
 
 const CFG = { owner:'aiyuansulove', repo:'tdxh', branch:'master', api:'https://api.github.com' };
+const AI_API_KEY = 'sk-VWw0MUjMAE7NqHVlSn97rCl0JUAxfdWiTp9BS72jm36InupP';
 let TOKEN = localStorage.getItem('github_token') || '';
 
 const SECTIONS = [
@@ -24,6 +25,7 @@ const SECTIONS = [
   { id:'contact',        label:'📞 联系我们',          file:'data/homepage/contact.json', group:'首页内容' },
   { id:'news',           label:'📰 新闻动态',          file:'content/news', group:'文章管理', isFolder:true },
   { id:'about',          label:'📋 关于我们',          file:'content/about.md', group:'文章管理' },
+  { id:'ai_image',       label:'🤖 AI 生图',           file:'', group:'工具' },
 ];
 
 const SCHEMA = {
@@ -154,6 +156,124 @@ function toast(msg, type='info', t=3500){
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), t);
 }
 
+// ===== AI 生图 =====
+const AI_ENDPOINT = 'https://apihub.agnes-ai.com/v1/images/generations';
+const AI_MODEL = 'agnes-image-2.1-flash';
+
+function openAIImageGen(){
+  showEditor('ai_image', 'AI 图像生成');
+  $('editorSaveBtn').style.display = 'none';
+  $('commitMsg').style.display = 'none';
+
+  const form = document.getElementById('sectionForm');
+  form.innerHTML = `
+    <style>
+      .ai-gen-container { max-width: 800px; margin: 0 auto; }
+      .ai-gen-container textarea { width:100%; padding:12px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:.95em; outline:none; font-family:inherit; resize:vertical; min-height:80px; line-height:1.6; }
+      .ai-gen-container textarea:focus { border-color:var(--gold); }
+      .ai-gen-container select, .ai-gen-container input[type=text] { width:100%; padding:9px 12px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:.9em; outline:none; font-family:inherit; }
+      .ai-gen-container select:focus, .ai-gen-container input:focus { border-color:var(--gold); }
+      .ai-gen-row { display:flex; gap:12px; flex-wrap:wrap; }
+      .ai-gen-row > div { flex:1; min-width:180px; }
+      .ai-gen-result { margin-top:20px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+      .ai-gen-result img { max-width:100%; max-height:500px; border-radius:var(--radius-sm); }
+      .ai-gen-result .placeholder { color:var(--text3); font-size:.9em; }
+      .ai-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; justify-content:center; }
+    </style>
+    <div class="ai-gen-container">
+      <div class="form-group"><label class="form-label">🎨 画面描述（Prompt）</label>
+        <textarea id="aiPrompt" rows="4" placeholder="描述你想生成的画面，例如：一幅精美的鲟鳇鱼产品展示图，深色背景，金色灯光，高端质感..."></textarea></div>
+      <div class="ai-gen-row">
+        <div><label class="form-label">尺寸</label>
+        <select id="aiSize"><option value="1024x1024">1024×1024 方形</option><option value="1024x768" selected>1024×768 横屏</option><option value="768x1024">768×1024 竖屏</option><option value="1280x720">1280×720 宽屏</option></select></div>
+        <div><label class="form-label">参考图片（可选）</label>
+        <input type="text" id="aiRefImage" placeholder="粘贴图片 URL，或留空纯文生图"></div>
+      </div>
+      <button id="aiGenBtn" class="btn btn-primary" style="margin-top:16px;width:100%;justify-content:center;padding:14px">✨ 生成图片</button>
+      <div class="ai-gen-result" id="aiGenResult"><span class="placeholder">点击上方按钮生成图片</span></div>
+      <div class="ai-actions" id="aiGenActions" style="display:none">
+        <button class="btn btn-outline" onclick="copyAIImageUrl()">📋 复制图片 URL</button>
+        <button class="btn btn-outline" onclick="downloadAIImage()">💾 下载图片</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('aiGenBtn').addEventListener('click', generateAIImage);
+  document.getElementById('aiPrompt').addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter') generateAIImage(); });
+}
+
+let lastAIImageUrl = '';
+
+async function generateAIImage(){
+  const prompt = document.getElementById('aiPrompt').value.trim();
+  if(!prompt){ toast('⚠️ 请输入画面描述','error'); return; }
+
+  const size = document.getElementById('aiSize').value;
+  const refImage = document.getElementById('aiRefImage').value.trim();
+  const btn = document.getElementById('aiGenBtn');
+  const resultDiv = document.getElementById('aiGenResult');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 生成中...（约 10-30 秒）';
+  resultDiv.innerHTML = '<span class="placeholder"><span class="spinner"></span> 正在生成图片...</span>';
+
+  try {
+    let body = { model: AI_MODEL, prompt, size };
+
+    if (refImage) {
+      // 图生图
+      body.extra_body = { image: [refImage], response_format: 'url' };
+    } else {
+      // 文生图
+      body.extra_body = { response_format: 'url' };
+    }
+
+    const res = await fetch(AI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
+
+    const data = await res.json();
+    const imageUrl = data.data?.[0]?.url;
+
+    if(imageUrl){
+      lastAIImageUrl = imageUrl;
+      resultDiv.innerHTML = `<img src="${imageUrl}" alt="AI 生成图片">`;
+      document.getElementById('aiGenActions').style.display = 'flex';
+      toast('✅ 图片生成成功！','success');
+    } else {
+      throw new Error('返回数据中未找到图片 URL');
+    }
+  } catch(e) {
+    resultDiv.innerHTML = `<span class="placeholder" style="color:var(--danger)">❌ 生成失败：${e.message}</span>`;
+    toast('❌ 生成失败：' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ 生成图片';
+  }
+}
+
+function copyAIImageUrl(){
+  if(!lastAIImageUrl) return;
+  navigator.clipboard.writeText(lastAIImageUrl).then(()=>{
+    toast('✅ 图片 URL 已复制到剪贴板','success');
+  }).catch(()=>{
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = lastAIImageUrl; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    toast('✅ 图片 URL 已复制','success');
+  });
+}
+
+function downloadAIImage(){
+  if(!lastAIImageUrl) return;
+  window.open(lastAIImageUrl, '_blank');
+  toast('✅ 图片已在新标签页打开，右键可保存','success');
+}
+
 // ===== 侧边栏 =====
 function renderSidebar(){
   const nav=document.getElementById('sidebarNav');
@@ -173,6 +293,7 @@ function renderSidebar(){
       const id=btn.dataset.id, file=btn.dataset.file;
       if(id==='news') openNewsManager();
       else if(id==='about') openArticleEditor(file);
+      else if(id==='ai_image') openAIImageGen();
       else openSectionEditor(id, file);
     });
   });
