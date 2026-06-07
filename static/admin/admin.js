@@ -316,6 +316,8 @@ async function openSectionEditor(id, file){
 }
 
 // ===== 文章编辑器 =====
+let quillArticle = null;  // Quill 文章编辑器实例
+
 async function openArticleEditor(file){
   try {
     showEditor('article', file);
@@ -324,14 +326,96 @@ async function openArticleEditor(file){
     articleState = { sha:f.sha, path:file, parsed };
     const form = document.getElementById('sectionForm');
     form.innerHTML = `
+      <style>
+        #quillArticleContainer { display:flex; flex-direction:column; height:500px; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
+        #quillArticleContainer .ql-toolbar { background:var(--bg-sidebar); border:none; border-bottom:1px solid var(--border); flex-shrink:0; }
+        #quillArticleContainer .ql-container { flex:1; overflow-y:auto; background:var(--bg-dark); font-family:"PingFang SC","Microsoft YaHei",sans-serif; font-size:1em; color:var(--text); }
+        #quillArticleContainer .ql-container .ql-editor { min-height:300px; padding:20px; line-height:1.9; color:var(--text-primary); }
+        #quillArticleContainer .ql-editor.ql-blank::before { color:var(--text-muted); font-style:normal; left:20px; }
+        #quillArticleContainer .ql-editor h1 { color:var(--gold); font-size:1.6em; }
+        #quillArticleContainer .ql-editor h2 { color:var(--gold-light); font-size:1.35em; }
+        #quillArticleContainer .ql-editor strong { color:var(--gold); }
+        #quillArticleContainer .ql-editor blockquote { border-left:3px solid var(--gold); padding-left:16px; color:var(--text2); }
+        #quillArticleContainer .ql-editor img { max-width:100%; border-radius:6px; }
+        #quillArticleContainer .ql-snow .ql-stroke { stroke:var(--text2); }
+        #quillArticleContainer .ql-snow .ql-fill { fill:var(--text2); }
+        #quillArticleContainer .ql-snow .ql-picker-label { color:var(--text2); }
+        #quillArticleContainer .ql-snow .ql-picker-options { background:var(--bg-card); border-color:var(--border); }
+        #quillArticleContainer .ql-snow .ql-picker-item { color:var(--text); }
+        #quillArticleContainer .ql-toolbar button:hover .ql-stroke,
+        #quillArticleContainer .ql-toolbar button.ql-active .ql-stroke { stroke:var(--gold); }
+        #quillArticleContainer .ql-toolbar button:hover .ql-fill,
+        #quillArticleContainer .ql-toolbar button.ql-active .ql-fill { fill:var(--gold); }
+        #quillArticleContainer .ql-toolbar button:hover,
+        #quillArticleContainer .ql-toolbar button.ql-active { color:var(--gold); }
+      </style>
       <div class="form-group"><label class="form-label">标题</label><input type="text" id="artTitle" class="form-input" value="${esc(parsed.title)}"></div>
       <div class="form-group"><label class="form-label">日期</label><input type="date" id="artDate" class="form-input" value="${parsed.date}"></div>
-      <div class="form-group"><label class="form-label">内容（HTML / Markdown）</label>
-        <textarea id="artBody" class="form-textarea" rows="18" style="font-family:monospace;font-size:.9em;line-height:1.7">${esc(parsed.body)}</textarea>
-        <div class="form-hint">支持 HTML 格式</div></div>`;
+      <div class="form-group"><label class="form-label">正文内容</label>
+        <div id="quillArticleContainer"><div id="quillArticleEditor"></div></div>
+        <div class="form-hint">支持文字样式、颜色、图片上传、链接等</div></div>`;
     state.changed=false;
     $('commitMsg').value = '更新 ' + file.split('/').pop();
     $('editorSaveBtn').onclick = saveArticle;
+
+    // 初始化 Quill 编辑器
+    if (quillArticle) { quillArticle = null; }
+    // 确保编辑器的容器存在
+    setTimeout(() => {
+      const editorEl = document.getElementById('quillArticleEditor');
+      if (!editorEl) return;
+      
+      // 清理旧的 Quill 实例
+      const container = document.getElementById('quillArticleContainer');
+      const oldToolbar = container.querySelector('.ql-toolbar');
+      if (oldToolbar) oldToolbar.remove();
+      
+      quillArticle = new Quill('#quillArticleEditor', {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            [{ 'header': [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'color': [] }, { 'background': [] }],
+            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+            ['blockquote', 'code-block'],
+            [{ 'align': [] }],
+            [{ 'script': 'sub'}, { 'script': 'super' }],
+            [{ 'indent': '-1'}, { 'indent': '+1' }],
+            ['link', 'image'],
+            ['clean'],
+          ],
+        },
+        placeholder: '在此输入新闻内容...',
+      });
+
+      // 填入已有内容
+      const body = parsed.body || '';
+      if (body.includes('<') && body.includes('>')) {
+        quillArticle.root.innerHTML = body;
+      } else if (body.trim()) {
+        quillArticle.setText('');
+        quillArticle.root.innerHTML = body.replace(/\n/g, '<br>');
+      }
+
+      // 图片上传处理
+      quillArticle.getModule('toolbar').addHandler('image', () => {
+        $('imageFileInput').click();
+      });
+
+      // 内容变化标记
+      quillArticle.on('text-change', () => { state.changed = true; });
+
+      // 监听到图片上传完成自动插入
+      const origUploadCb = window._quillImageCallback;
+      window._quillImageCallback = (url) => {
+        if (quillArticle) {
+          const range = quillArticle.getSelection(true);
+          quillArticle.insertEmbed(range.index, 'image', url);
+          quillArticle.setSelection(range.index + 1);
+        }
+      };
+    }, 50);
   } catch(e){ toast('❌ 加载失败：'+e.message, 'error'); }
 }
 
@@ -339,7 +423,10 @@ async function saveArticle(){
   if(!articleState) return;
   const title = $('artTitle').value.trim() || '无标题';
   const date = $('artDate').value || new Date().toISOString().split('T')[0];
-  const body = $('artBody').value || '';
+  // 从 Quill 获取 HTML 内容
+  const body = (quillArticle && quillArticle.root) 
+    ? quillArticle.root.innerHTML 
+    : ($('artBody') ? $('artBody').value : '');
   const fm = {...articleState.parsed.frontMatter, title, date};
   const content = '---\n' + Object.entries(fm).map(([k,v])=>{
     const q = v.includes(':')||v.includes('#')||/\s/.test(v);
@@ -749,8 +836,15 @@ function init(){
   $('logoutBtn').addEventListener('click', handleLogout);
   $('imageFileInput').addEventListener('change', e=>{
     if(e.target.files&&e.target.files[0]){
-      const cb=imgCallback; imgCallback=null;
-      if(cb) api.upload(e.target.files[0]).then(url=>{cb(url);toast('✅ 图片上传成功！','success');}).catch(e=>{toast('❌ '+e.message,'error');});
+      const cb=imgCallback; 
+      const qCb = window._quillImageCallback;
+      imgCallback=null;
+      window._quillImageCallback = null;
+      if(cb || qCb) api.upload(e.target.files[0]).then(url=>{
+        if (cb) cb(url);
+        if (qCb) qCb(url);
+        toast('✅ 图片上传成功！','success');
+      }).catch(e=>{ toast('❌ '+e.message,'error'); });
     }
   });
   document.addEventListener('keydown', e=>{
