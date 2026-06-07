@@ -1,7 +1,11 @@
 /**
- * 天地鲟鳇 · 后台管理 v2
- * 纯 GitHub API 驱动，线上线下一致
- * 保存 → GitHub → Actions 构建 → Pages 更新
+ * 天地鲟鳇 · 后台管理 v3
+ * 纯 GitHub API 驱动，保存→GitHub→Vercel→自动部署
+ * 
+ * 修复记录:
+ * v3 - 修复数组内图片上传无效、预览不更新、索引错位
+ * v2 - 修复文章保存按钮BUG、去掉relURL
+ * v1 - 初始版本
  */
 
 const CFG = { owner:'aiyuansulove', repo:'tdxh', branch:'master', api:'https://api.github.com' };
@@ -53,7 +57,8 @@ const SCHEMA = {
     { k:'image', label:'配图', t:'image' }, { k:'caption', label:'图片说明', t:'text' },
     { k:'paragraphs', label:'文字段落', t:'strArr', item:'段落' },
     { k:'stats', label:'统计数据', t:'array', item:'数据', fields:[
-      { k:'num', label:'数值', t:'text' }, { k:'label', label:'标签', t:'text' }, { k:'sublabel', label:'子标签', t:'text' } ]},
+      { k:'num', label:'数值', t:'text' }, { k:'label', label:'标签', t:'text' },
+      { k:'sublabel', label:'子标签', t:'text' } ]},
   ]},
   culture: { fields: [
     { k:'title', label:'板块标题', t:'text' }, { k:'subtitle', label:'副标题（英文）', t:'text' },
@@ -180,7 +185,7 @@ async function openSectionEditor(id, file){
     state.sha = f.sha; state.data = data; state.changed = false;
     renderForm(id, data);
   } catch(e){
-    toast('❌ 加载失败：' + e.message + '。请检查 GitHub Token 是否有 repo 权限', 'error');
+    toast('❌ 加载失败：' + e.message, 'error');
     console.error(e);
   }
 }
@@ -222,7 +227,7 @@ async function saveArticle(){
     articleState.sha = r.content.sha; state.changed=false;
     toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站更新', 'success');
   } catch(e){ toast('❌ 保存失败：'+e.message,'error'); }
-  finally { btn.disabled=false; btn.innerHTML='💾 保存'; /* keep saveArticle as handler - the caller openArticleEditor already sets onclick */ }
+  finally { btn.disabled=false; btn.innerHTML='💾 保存'; }
 }
 
 // ===== 新闻列表 =====
@@ -301,6 +306,27 @@ function showEditor(id, file){
   state.editing=id; state.changed=false;
 }
 
+// ===== 更新图片预览 =====
+function updateImagePreview(input) {
+  if (!input) return;
+  const group = input.closest('.form-group');
+  if (!group) return;
+  const preview = group.querySelector('.form-image-preview');
+  if (!preview) {
+    // 如果没有预览元素（上传前），创建一个
+    const path = input.value;
+    if (!path) return;
+    const div = document.createElement('div');
+    div.className = 'form-image-preview';
+    div.innerHTML = `<img src="${esc(path)}" onerror="this.style.display='none'"><span class="form-image-path">${esc(path)}</span>`;
+    group.appendChild(div);
+  } else {
+    preview.querySelector('img').src = input.value;
+    preview.querySelector('.form-image-path').textContent = input.value;
+    preview.querySelector('img').style.display = '';
+  }
+}
+
 // ===== 表单渲染 =====
 function renderForm(id, data){
   const schema=SCHEMA[id]; const form=$('sectionForm');
@@ -308,19 +334,36 @@ function renderForm(id, data){
   let html=''; schema.fields.forEach(f=>{ html+=renderField(f,data); });
   form.innerHTML=html;
   $('commitMsg').value = '更新首页: '+(SECTIONS.find(s=>s.id===id)?.label||id);
+  
+  // 绑定添加/删除按钮
   form.querySelectorAll('.array-add-btn').forEach(btn=>{ btn.onclick=e=>{addArrayItem(id,btn.dataset.key);}; });
   form.querySelectorAll('.array-del-btn').forEach(btn=>{ btn.onclick=e=>{removeArrayItem(id,btn.dataset.key,parseInt(btn.dataset.idx));}; });
+  
+  // 🔥 绑定图片上传按钮（修复 v3：统一处理所有场景）
   form.querySelectorAll('.img-upload-btn').forEach(btn=>{
     btn.onclick=e=>{
-      const key=btn.dataset.key, idx=btn.dataset.idx, sub=btn.dataset.sub;
-      imgCallback=url=>{
-        if(sub){ const inp=document.querySelector(`input[data-key="${sub}"][data-idx="${idx}"]`); if(inp){ inp.value=url; } }
-        else { const inp=document.querySelector(`input[data-key="${key}"]:not([data-idx])`); if(inp){ inp.value=url; const prev=inp.closest('.form-group')?.querySelector('.form-image-preview'); if(prev){ prev.querySelector('img').src=url; prev.querySelector('.form-image-path').textContent=url; } } }
-        state.changed=true;
+      const key=btn.dataset.key;   // 字段名
+      const idx=btn.dataset.idx;   // 数组索引（如果有）
+      // 保存当前按钮对应的输入框引用
+      let targetInput;
+      if (idx !== undefined) {
+        // 数组内的图片字段
+        targetInput = document.querySelector(`input[data-key="${key}"][data-idx="${idx}"]`);
+      } else {
+        // 顶级图片字段
+        targetInput = document.querySelector(`input[data-key="${key}"]:not([data-idx])`);
+      }
+      imgCallback = url => {
+        if (targetInput) {
+          targetInput.value = url;
+          updateImagePreview(targetInput);
+        }
+        state.changed = true;
       };
       $('imageFileInput').click();
     };
   });
+  
   form.querySelectorAll('input,textarea').forEach(el=>{ el.oninput=()=>{state.changed=true;}; });
 }
 
@@ -331,7 +374,7 @@ function renderField(f,data,isArr,idx,parentKey){
   if(f.t==='textarea') return `<div class="form-group"><label class="form-label">${f.label}</label><textarea class="form-textarea" rows="3" data-key="${f.k}" ${di}>${esc(val||'')}</textarea></div>`;
   if(f.t==='image') return `<div class="form-group"><label class="form-label">${f.label}</label>
     <div class="form-image-row"><input type="text" class="form-input" data-key="${f.k}" ${di} value="${esc(val||'')}" placeholder="图片路径或URL">
-    <button class="btn btn-outline btn-sm img-upload-btn" data-key="${f.k}" ${isArr?`data-idx="${idx}"`:''}>上传</button></div>
+    <button class="btn btn-outline btn-sm img-upload-btn" data-key="${f.k}" ${di}>上传</button></div>
     ${val?`<div class="form-image-preview"><img src="${esc(val)}" onerror="this.style.display='none'"><span class="form-image-path">${esc(val)}</span></div>`:''}</div>`;
   if(f.t==='strArr'){
     const arr=Array.isArray(val)?val:[];
@@ -354,6 +397,7 @@ function renderField(f,data,isArr,idx,parentKey){
   return '';
 }
 
+// ===== 数组操作 =====
 function addArrayItem(sectionId,key){
   const field=SCHEMA[sectionId].fields.find(f=>f.k===key); if(!field) return;
   if(field.t==='strArr'){
@@ -372,7 +416,21 @@ function addArrayItem(sectionId,key){
   d.innerHTML=`<div class="form-array-item-header"><span class="form-array-item-idx">#${n+1} ${field.item||''}</span><button class="form-array-del array-del-btn" data-key="${key}" data-idx="${n}">✕ 删除</button></div>${field.fields.map(sf=>renderField(sf,empty,true,n)).join('')}`;
   div.insertBefore(d, div.querySelector('.form-array-add'));
   d.querySelector('.array-del-btn').onclick=()=>{removeArrayItem(sectionId,key,n);};
-  d.querySelectorAll('.img-upload-btn').forEach(btn=>{btn.onclick=e=>{const sk=btn.dataset.key;imgCallback=url=>{const inp=document.querySelector(`input[data-key="${sk}"][data-idx="${n}"]`);if(inp)inp.value=url;state.changed=true;};$('imageFileInput').click();};});
+  
+  // 🔥 v3 修复：为新增项绑定图片上传，用闭包保存正确索引
+  d.querySelectorAll('.img-upload-btn').forEach(btn=>{
+    btn.onclick=e=>{
+      const sk=btn.dataset.key;
+      const si=parseInt(d.dataset.index || d.querySelector('[data-idx]')?.dataset?.idx || n);
+      const inp = d.querySelector(`input[data-key="${sk}"]`);
+      imgCallback=url=>{
+        if(inp){ inp.value=url; updateImagePreview(inp); }
+        state.changed=true;
+      };
+      $('imageFileInput').click();
+    };
+  });
+  
   d.querySelectorAll('input,textarea').forEach(el=>{el.oninput=()=>{state.changed=true;};});
   state.changed=true;
 }
@@ -395,7 +453,7 @@ function collectData(sectionId){
   return r;
 }
 
-// ===== 保存 → GitHub API → Actions 自动构建部署 =====
+// ===== 保存 =====
 async function saveSection(){
   const id=state.editing;
   if(!id){ toast('⚠️ 没有打开的文件','error'); return; }
