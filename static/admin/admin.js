@@ -314,8 +314,8 @@ function renderForm(id, data){
     btn.onclick=e=>{
       const key=btn.dataset.key, idx=btn.dataset.idx, sub=btn.dataset.sub;
       imgCallback=url=>{
-        if(sub){ const inp=document.querySelector(`input[data-key="${sub}"][data-idx="${idx}"]`); if(inp) inp.value=url; }
-        else { const inp=document.querySelector(`input[data-key="${key}"]:not([data-idx])`); if(inp) inp.value=url; }
+        if(sub){ const inp=document.querySelector(`input[data-key="${sub}"][data-idx="${idx}"]`); if(inp){ inp.value=url; } }
+        else { const inp=document.querySelector(`input[data-key="${key}"]:not([data-idx])`); if(inp){ inp.value=url; const prev=inp.closest('.form-group')?.querySelector('.form-image-preview'); if(prev){ prev.querySelector('img').src=url; prev.querySelector('.form-image-path').textContent=url; } } }
         state.changed=true;
       };
       $('imageFileInput').click();
@@ -331,7 +331,7 @@ function renderField(f,data,isArr,idx,parentKey){
   if(f.t==='textarea') return `<div class="form-group"><label class="form-label">${f.label}</label><textarea class="form-textarea" rows="3" data-key="${f.k}" ${di}>${esc(val||'')}</textarea></div>`;
   if(f.t==='image') return `<div class="form-group"><label class="form-label">${f.label}</label>
     <div class="form-image-row"><input type="text" class="form-input" data-key="${f.k}" ${di} value="${esc(val||'')}" placeholder="图片路径或URL">
-    <button class="btn btn-outline btn-sm img-upload-btn" data-key="${f.k}" ${idx!==false?`data-idx="${idx}"`:''}>上传</button></div>
+    <button class="btn btn-outline btn-sm img-upload-btn" data-key="${f.k}" ${isArr?`data-idx="${idx}"`:''}>上传</button></div>
     ${val?`<div class="form-image-preview"><img src="${esc(val)}" onerror="this.style.display='none'"><span class="form-image-path">${esc(val)}</span></div>`:''}</div>`;
   if(f.t==='strArr'){
     const arr=Array.isArray(val)?val:[];
