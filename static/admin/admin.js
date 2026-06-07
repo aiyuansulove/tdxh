@@ -220,7 +220,7 @@ async function saveArticle(){
   try {
     const r = await api.put(articleState.path, content, msg, articleState.sha);
     articleState.sha = r.content.sha; state.changed=false;
-    toast('✅ 保存成功！GitHub Actions 正在自动构建，1-3 分钟后网站更新', 'success');
+    toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站更新', 'success');
   } catch(e){ toast('❌ 保存失败：'+e.message,'error'); }
   finally { btn.disabled=false; btn.innerHTML='💾 保存'; /* keep saveArticle as handler - the caller openArticleEditor already sets onclick */ }
 }
@@ -414,7 +414,7 @@ async function saveSection(){
       state.sha = r.content.sha;
     }
     state.changed=false;
-    toast('✅ 保存成功！GitHub Actions 正在自动构建，1-3 分钟后网站自动更新', 'success');
+    toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站自动更新', 'success');
   } catch(e){ toast('❌ 保存失败：'+e.message,'error'); }
   finally { btn.disabled=false; btn.innerHTML='💾 保存'; }
 }
