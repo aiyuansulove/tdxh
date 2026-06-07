@@ -29,3 +29,5 @@ static/data/
 .env
 *.env
 .codegraph/
+
+.vercel
