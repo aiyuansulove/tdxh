@@ -628,15 +628,29 @@ function removeArrayItem(sectionId,key,idx){
   const field=SCHEMA[sectionId].fields.find(f=>f.k===key); if(!field) return;
   const container=$((field.t==='strArr'?'sa-':'arr-')+key); if(!container) return;
   const items=container.querySelectorAll('.form-array-item');
-  if(items[idx]){items[idx].remove();state.changed=true;}
+  if(items[idx]){items[idx].remove();}
+  // 🔥 重新索引剩余的 items，防止 collectData 错位
+  container.querySelectorAll('.form-array-item').forEach((item,i)=>{
+    // 更新 data-idx
+    const inputs = item.querySelectorAll('[data-idx]');
+    if (inputs.length) {
+      inputs.forEach(el => { el.dataset.idx = i; });
+    } else {
+      item.dataset.idx = i;
+    }
+    // 更新显示序号
+    const label = item.querySelector('.form-array-item-idx');
+    if (label) label.textContent = `#${i+1}`;
+  });
+  state.changed=true;
 }
 
 function collectData(sectionId){
   const schema=SCHEMA[sectionId]; if(!schema) return null;
   const r={};
   schema.fields.forEach(f=>{
-    if(f.t==='array'){ const arr=[]; const div=$('arr-'+f.k); if(div) div.querySelectorAll('.form-array-item').forEach((item,i)=>{const o={};f.fields.forEach(sf=>{const inp=item.querySelector(`[data-key="${sf.k}"][data-idx="${i}"]`);o[sf.k]=inp?inp.value:'';});arr.push(o);}); r[f.k]=arr; }
-    else if(f.t==='strArr'){ const arr=[]; const div=$('sa-'+f.k); if(div) div.querySelectorAll('.form-array-item').forEach((item,i)=>{const inp=item.querySelector(`[data-key="${f.k}"][data-idx="${i}"]`);if(inp)arr.push(inp.value);}); r[f.k]=arr; }
+    if(f.t==='array'){ const arr=[]; const div=$('arr-'+f.k); if(div) div.querySelectorAll('.form-array-item').forEach((item,i)=>{const o={};f.fields.forEach(sf=>{const inp=item.querySelector(`input[data-key="${sf.k}"],textarea[data-key="${sf.k}"]`);o[sf.k]=inp?inp.value:'';});arr.push(o);}); r[f.k]=arr; }
+    else if(f.t==='strArr'){ const arr=[]; const div=$('sa-'+f.k); if(div) div.querySelectorAll('.form-array-item').forEach((item,i)=>{const inp=item.querySelector(`textarea[data-key="${f.k}"]`);if(inp)arr.push(inp.value);}); r[f.k]=arr; }
     else { const inp=document.querySelector(`[data-key="${f.k}"]:not([data-idx])`); r[f.k]=inp?inp.value:''; }
   });
   return r;
