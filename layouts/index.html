@@ -15,7 +15,7 @@
 <!-- Hero Section -->
 <section class="hero">
     <div class="hero-content">
-        <img src="{{ $hero.logo | relURL }}" alt="天地鲟鳇" class="hero-logo-img">
+        <img src="{{ $hero.logo }}" alt="天地鲟鳇" class="hero-logo-img">
         <h1 class="hero-title">{{ $hero.title }}</h1>
         <p class="hero-subtitle">{{ $hero.subtitle }}</p>
         <div class="hero-slogan">
@@ -35,7 +35,7 @@
     <div class="timeline">
         {{ range $story.timeline }}
         <div class="timeline-item reveal">
-            <img class="timeline-img" src="{{ .image | relURL }}" alt="{{ .eraName }}" loading="lazy">
+            <img class="timeline-img" src="{{ .image }}" alt="{{ .eraName }}" loading="lazy">
             <div class="timeline-era">{{ .era }}</div>
             <div class="timeline-era-name">{{ .eraName }}</div>
             <p class="timeline-text">{{ .text }}</p>
@@ -52,7 +52,7 @@
     <div class="product-grid">
         {{ range $products.products }}
         <div class="product-card reveal">
-            <img class="product-img" src="{{ .image | relURL }}" alt="{{ .name }}" loading="lazy">
+            <img class="product-img" src="{{ .image }}" alt="{{ .name }}" loading="lazy">
             <div class="product-info">
                 <div class="product-name">{{ .name }}</div>
                 <div class="product-spec">{{ .spec }}</div>
@@ -93,7 +93,7 @@
             {{ end }}
         </div>
         <div class="origin-image-wrap reveal">
-            <img class="origin-image" src="{{ $origin.image | relURL }}" alt="天地鲟鳇" loading="lazy">
+            <img class="origin-image" src="{{ $origin.image }}" alt="天地鲟鳇" loading="lazy">
             <div class="origin-image-caption">{{ $origin.caption }}</div>
         </div>
     </div>
@@ -116,7 +116,7 @@
     <div class="culture-grid">
         {{ range $culture.cards }}
         <div class="culture-card reveal">
-            <img class="culture-card-img" src="{{ .image | relURL }}" alt="{{ .title }}" loading="lazy">
+            <img class="culture-card-img" src="{{ .image }}" alt="{{ .title }}" loading="lazy">
             <div>
                 <div class="culture-card-title">{{ .title }}</div>
                 <p class="culture-card-desc">{{ .desc }}</p>
@@ -134,7 +134,7 @@
     <div class="team-grid">
         {{ range $team.members }}
         <div class="team-card reveal">
-            <img class="team-photo" src="{{ .photo | relURL }}" alt="{{ .name }}" loading="lazy">
+            <img class="team-photo" src="{{ .photo }}" alt="{{ .name }}" loading="lazy">
             <div class="team-name">{{ .name }}</div>
             <div class="team-title">{{ .title }}</div>
             <div class="team-exp">{{ .exp }}</div>
@@ -151,7 +151,7 @@
         <h2 class="section-title reveal">{{ $brandIp.title }}</h2>
         <p class="section-subtitle reveal">{{ $brandIp.subtitle }}</p>
         <div class="brand-ip-art">
-            <img src="{{ $brandIp.logo | relURL }}" alt="天地鲟鳇" class="brand-logo">
+            <img src="{{ $brandIp.logo }}" alt="天地鲟鳇" class="brand-logo">
         </div>
     </div>
 </section>

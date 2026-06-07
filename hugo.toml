@@ -1,4 +1,4 @@
-baseURL = '/'
+baseURL = 'https://tdxh01.xyz/'
 title = '天地鲟鳇'
 languageCode = 'zh-cn'
 ignoreLogs = ['warning-goldmark-raw-html', 'warning-kind-taxonomy']

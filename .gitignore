@@ -28,3 +28,4 @@ static/data/
 # Environment / secrets
 .env
 *.env
+.codegraph/

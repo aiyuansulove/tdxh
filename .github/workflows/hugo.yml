@@ -27,7 +27,7 @@ jobs:
           hugo-version: 'latest'
 
       - name: Build
-        run: hugo --minify --baseURL /tdxh/
+        run: hugo --minify --baseURL https://tdxh01.xyz/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

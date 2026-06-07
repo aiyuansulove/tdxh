@@ -8,35 +8,35 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ "css/style.css" | relURL }}">
+    <link rel="stylesheet" href="/css/style.css">
     <!-- SEO / Open Graph -->
     <meta property="og:title" content="{{ .Title }} - {{ .Site.Title }}">
     <meta property="og:description" content="{{ .Site.Params.description }}">
     <meta property="og:type" content="website">
     <meta property="og:url" content="{{ .Permalink }}">
-    <meta property="og:image" content="{{ "images/天地鲟鳇logo.jpg" | absURL }}">
+    <meta property="og:image" content="/images/天地鲟鳇logo.jpg">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ .Title }} - {{ .Site.Title }}">
     <meta name="twitter:description" content="{{ .Site.Params.description }}">
-    <meta name="twitter:image" content="{{ "images/天地鲟鳇logo.jpg" | absURL }}">
+    <meta name="twitter:image" content="/images/天地鲟鳇logo.jpg">
 </head>
 <body>
     <header class="site-header" id="siteHeader">
-        <a href="{{ "/" | relURL }}" class="logo">
-            <img src="{{ "images/天地鲟鳇logo.jpg" | relURL }}" alt="天地鲟鳇" class="logo-img">
+        <a href="/" class="logo">
+            <img src="/images/天地鲟鳇logo.jpg" alt="天地鲟鳇" class="logo-img">
             <span>天地鲟鳇</span>
         </a>
         <ul class="nav-menu">
-            <li><a href="{{ "/#story" | relURL }}">品牌故事</a></li>
-            <li><a href="{{ "/#products" | relURL }}">产品展示</a></li>
-            <li><a href="{{ "/#craft" | relURL }}">匠心工艺</a></li>
-            <li><a href="{{ "/#origin" | relURL }}">产地溯源</a></li>
-            <li><a href="{{ "/#culture" | relURL }}">鲟鱼文化</a></li>
-            <li><a href="{{ "/#team" | relURL }}">匠人团队</a></li>
-            <li><a href="{{ "/#brandip" | relURL }}">品牌印记</a></li>
-            <li><a href="{{ "/#responsibility" | relURL }}">社会责任</a></li>
-            <li><a href="{{ "/#news" | relURL }}">新闻动态</a></li>
-            <li><a href="{{ "/#contact" | relURL }}" class="nav-cta">开团</a></li>
+            <li><a href="/#story">品牌故事</a></li>
+            <li><a href="/#products">产品展示</a></li>
+            <li><a href="/#craft">匠心工艺</a></li>
+            <li><a href="/#origin">产地溯源</a></li>
+            <li><a href="/#culture">鲟鱼文化</a></li>
+            <li><a href="/#team">匠人团队</a></li>
+            <li><a href="/#brandip">品牌印记</a></li>
+            <li><a href="/#responsibility">社会责任</a></li>
+            <li><a href="/#news">新闻动态</a></li>
+            <li><a href="/#contact" class="nav-cta">开团</a></li>
         </ul>
         <button class="nav-toggle" id="navToggle" aria-label="菜单">
             <span></span><span></span><span></span>
@@ -45,16 +45,16 @@
 
     <div class="mobile-menu" id="mobileMenu">
         <button class="mobile-close" id="mobileClose" aria-label="关闭">x</button>
-        <a href="{{ "/#story" | relURL }}" onclick="closeMobileMenu()">品牌故事</a>
-        <a href="{{ "/#products" | relURL }}" onclick="closeMobileMenu()">产品展示</a>
-        <a href="{{ "/#craft" | relURL }}" onclick="closeMobileMenu()">匠心工艺</a>
-        <a href="{{ "/#origin" | relURL }}" onclick="closeMobileMenu()">产地溯源</a>
-        <a href="{{ "/#culture" | relURL }}" onclick="closeMobileMenu()">鲟鱼文化</a>
-        <a href="{{ "/#team" | relURL }}" onclick="closeMobileMenu()">匠人团队</a>
-        <a href="{{ "/#brandip" | relURL }}" onclick="closeMobileMenu()">品牌印记</a>
-        <a href="{{ "/#responsibility" | relURL }}" onclick="closeMobileMenu()">社会责任</a>
-        <a href="{{ "/#news" | relURL }}" onclick="closeMobileMenu()">新闻动态</a>
-        <a href="{{ "/#contact" | relURL }}" onclick="closeMobileMenu()">开团</a>
+        <a href="/#story" onclick="closeMobileMenu()">品牌故事</a>
+        <a href="/#products" onclick="closeMobileMenu()">产品展示</a>
+        <a href="/#craft" onclick="closeMobileMenu()">匠心工艺</a>
+        <a href="/#origin" onclick="closeMobileMenu()">产地溯源</a>
+        <a href="/#culture" onclick="closeMobileMenu()">鲟鱼文化</a>
+        <a href="/#team" onclick="closeMobileMenu()">匠人团队</a>
+        <a href="/#brandip" onclick="closeMobileMenu()">品牌印记</a>
+        <a href="/#responsibility" onclick="closeMobileMenu()">社会责任</a>
+        <a href="/#news" onclick="closeMobileMenu()">新闻动态</a>
+        <a href="/#contact" onclick="closeMobileMenu()">开团</a>
     </div>
 
     <main class="main-content">
@@ -71,20 +71,20 @@
             <div class="footer-col">
                 <div class="footer-col-title">快速导航</div>
                 <ul>
-                    <li><a href="{{ "/#story" | relURL }}">品牌故事</a></li>
-                    <li><a href="{{ "/#products" | relURL }}">产品展示</a></li>
-                    <li><a href="{{ "/#craft" | relURL }}">匠心工艺</a></li>
-                    <li><a href="{{ "/#origin" | relURL }}">产地溯源</a></li>
+                    <li><a href="/#story">品牌故事</a></li>
+                    <li><a href="/#products">产品展示</a></li>
+                    <li><a href="/#craft">匠心工艺</a></li>
+                    <li><a href="/#origin">产地溯源</a></li>
                 </ul>
             </div>
             <div class="footer-col">
                 <div class="footer-col-title">更多了解</div>
                 <ul>
-                    <li><a href="{{ "/#culture" | relURL }}">鲟鱼文化</a></li>
-                    <li><a href="{{ "/#team" | relURL }}">匠人团队</a></li>
-                    <li><a href="{{ "/#brandip" | relURL }}">品牌印记</a></li>
-                    <li><a href="{{ "/#responsibility" | relURL }}">社会责任</a></li>
-                    <li><a href="{{ "/news/" | relURL }}">新闻动态</a></li>
+                    <li><a href="/#culture">鲟鱼文化</a></li>
+                    <li><a href="/#team">匠人团队</a></li>
+                    <li><a href="/#brandip">品牌印记</a></li>
+                    <li><a href="/#responsibility">社会责任</a></li>
+                    <li><a href="/news/">新闻动态</a></li>
                 </ul>
             </div>
             <div class="footer-col">
@@ -102,6 +102,6 @@
         </div>
     </footer>
 
-    <script src="{{ "js/main.js" | relURL }}"></script>
+    <script src="/js/main.js"></script>
 </body>
 </html>
