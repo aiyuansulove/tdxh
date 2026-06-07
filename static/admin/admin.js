@@ -464,31 +464,23 @@ function renderForm(id, data){
   form.querySelectorAll('.array-add-btn').forEach(btn=>{ btn.onclick=e=>{addArrayItem(id,btn.dataset.key);}; });
   form.querySelectorAll('.array-del-btn').forEach(btn=>{ btn.onclick=e=>{removeArrayItem(id,btn.dataset.key,parseInt(btn.dataset.idx));}; });
   
-  // 🔥 绑定图片上传按钮（修复 v3：统一处理所有场景）
+  // 绑定图片上传按钮
   form.querySelectorAll('.img-upload-btn').forEach(btn=>{
     btn.onclick=e=>{
-      const key=btn.dataset.key;   // 字段名
-      const idx=btn.dataset.idx;   // 数组索引（如果有）
-      // 保存当前按钮对应的输入框引用
-      let targetInput;
-      if (idx !== undefined) {
-        // 数组内的图片字段
-        targetInput = document.querySelector(`input[data-key="${key}"][data-idx="${idx}"]`);
-      } else {
-        // 顶级图片字段
-        targetInput = document.querySelector(`input[data-key="${key}"]:not([data-idx])`);
-      }
-      imgCallback = url => {
-        if (targetInput) {
-          targetInput.value = url;
-          updateImagePreview(targetInput);
-        }
-        state.changed = true;
-      };
+      const key=btn.dataset.key; const idx=btn.dataset.idx;
+      let targetInput = idx !== undefined
+        ? document.querySelector(`input[data-key="${key}"][data-idx="${idx}"]`)
+        : document.querySelector(`input[data-key="${key}"]:not([data-idx])`);
+      imgCallback = url => { if (targetInput) { targetInput.value = url; updateImagePreview(targetInput); } state.changed = true; };
       $('imageFileInput').click();
     };
   });
   
+  // 绑定 AI 生图按钮
+  form.querySelectorAll('.ai-gen-btn').forEach(btn=>{
+    btn.onclick = e => { handleAIGenForField(btn); };
+  });
+
   form.querySelectorAll('input,textarea').forEach(el=>{ el.oninput=()=>{state.changed=true;}; });
 }
 
@@ -499,7 +491,8 @@ function renderField(f,data,isArr,idx,parentKey){
   if(f.t==='textarea') return `<div class="form-group"><label class="form-label">${f.label}</label><textarea class="form-textarea" rows="3" data-key="${f.k}" ${di}>${esc(val||'')}</textarea></div>`;
   if(f.t==='image') return `<div class="form-group"><label class="form-label">${f.label}</label>
     <div class="form-image-row"><input type="text" class="form-input" data-key="${f.k}" ${di} value="${esc(val||'')}" placeholder="图片路径或URL">
-    <button class="btn btn-outline btn-sm img-upload-btn" data-key="${f.k}" ${di}>上传</button></div>
+    <button class="btn btn-outline btn-sm img-upload-btn" data-key="${f.k}" ${di}>本地</button>
+    <button class="btn btn-primary btn-sm ai-gen-btn" data-key="${f.k}" ${di} ${isArr?`data-arr-item="${idx}"`:''}>🤖 AI</button></div>
     ${val?`<div class="form-image-preview"><img src="${esc(val)}" onerror="this.style.display='none'"><span class="form-image-path">${esc(val)}</span></div>`:''}</div>`;
   if(f.t==='strArr'){
     const arr=Array.isArray(val)?val:[];
@@ -522,6 +515,76 @@ function renderField(f,data,isArr,idx,parentKey){
   return '';
 }
 
+// ===== AI 生图 → 直接填充图片字段 =====
+async function handleAIGenForField(btn){
+  const key=btn.dataset.key;        // 图片字段名
+  const idx=btn.dataset.idx;        // 数组索引
+  const arrItem=btn.dataset.arrItem; // 数组内索引
+
+  // 找到目标输入框
+  let targetInput;
+  if (idx !== undefined || arrItem !== undefined) {
+    const i = idx || arrItem;
+    targetInput = document.querySelector(`input[data-key="${key}"][data-idx="${i}"]`);
+  } else {
+    targetInput = document.querySelector(`input[data-key="${key}"]:not([data-idx])`);
+  }
+  if (!targetInput) { toast('⚠️ 找不到图片字段','error'); return; }
+
+  // 收集上下文 — 同组的 name/title + desc/text 字段
+  const container = targetInput.closest('.form-array-item') || targetInput.closest('.form-group')?.parentElement;
+  let promptParts = [];
+
+  if (container) {
+    // 尝试收集 name / title / exp / eraName 等名称类字段
+    for (const fieldKey of ['name','title','eraName','ctaText']) {
+      const inp = container.querySelector(`input[data-key="${fieldKey}"]`);
+      if (inp && inp.value.trim()) { promptParts.push(inp.value.trim()); break; }
+    }
+    // 尝试收集 desc / text / bio / exp 等描述类字段
+    for (const fieldKey of ['desc','text','bio','exp']) {
+      const inp = container.querySelector(`textarea[data-key="${fieldKey}"], input[data-key="${fieldKey}"]`);
+      if (inp && inp.value.trim()) { promptParts.push(inp.value.trim()); break; }
+    }
+  }
+
+  // 如果没有上下文，加一个默认描述
+  if (promptParts.length === 0) {
+    const sectionLabel = document.getElementById('editorTitle')?.textContent || '';
+    promptParts.push(sectionLabel.replace(/[^\u4e00-\u9fff\w]/g,''));
+  }
+
+  const prompt = promptParts.join('，') + '，高端产品摄影，精美商业质感，深色背景，金色点缀，细节丰富';
+  const size = '1024x768';
+
+  // Disable button & show loading
+  btn.disabled = true;
+  const origText = btn.textContent;
+  btn.textContent = '⏳';
+
+  try {
+    const res = await fetch('https://apihub.agnes-ai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: AI_MODEL, prompt, size, extra_body: { response_format: 'url' } })
+    });
+    if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
+    const data = await res.json();
+    const imgUrl = data.data?.[0]?.url;
+    if (!imgUrl) throw new Error('未获取到图片 URL');
+
+    targetInput.value = imgUrl;
+    updateImagePreview(targetInput);
+    state.changed = true;
+    toast('✅ AI 图片生成成功，已自动填入','success');
+  } catch(e) {
+    toast('❌ AI 生图失败：'+e.message,'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 AI';
+  }
+}
+
 // ===== 数组操作 =====
 function addArrayItem(sectionId,key){
   const field=SCHEMA[sectionId].fields.find(f=>f.k===key); if(!field) return;
@@ -542,18 +605,19 @@ function addArrayItem(sectionId,key){
   div.insertBefore(d, div.querySelector('.form-array-add'));
   d.querySelector('.array-del-btn').onclick=()=>{removeArrayItem(sectionId,key,n);};
   
-  // 🔥 v3 修复：为新增项绑定图片上传，用闭包保存正确索引
+  // 为新增项绑定图片上传
   d.querySelectorAll('.img-upload-btn').forEach(btn=>{
     btn.onclick=e=>{
       const sk=btn.dataset.key;
-      const si=parseInt(d.dataset.index || d.querySelector('[data-idx]')?.dataset?.idx || n);
       const inp = d.querySelector(`input[data-key="${sk}"]`);
-      imgCallback=url=>{
-        if(inp){ inp.value=url; updateImagePreview(inp); }
-        state.changed=true;
-      };
+      imgCallback=url=>{ if(inp){ inp.value=url; updateImagePreview(inp); } state.changed=true; };
       $('imageFileInput').click();
     };
+  });
+  
+  // 为新增项绑定 AI 生图
+  d.querySelectorAll('.ai-gen-btn').forEach(btn=>{
+    btn.onclick = e => { handleAIGenForField(btn); };
   });
   
   d.querySelectorAll('input,textarea').forEach(el=>{el.oninput=()=>{state.changed=true;};});
