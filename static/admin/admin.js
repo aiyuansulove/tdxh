@@ -465,6 +465,15 @@ async function saveSection(){
   const msg = $('commitMsg').value.trim() || '更新首页: '+(section.label||id);
   const btn=$('editorSaveBtn'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 保存中...';
   try {
+    // 🔥 重新读取文件获取最新 SHA（防止图片上传导致的 SHA 过期）
+    try {
+      const latest = await api.get(section.file);
+      state.sha = latest.sha;
+    } catch(refreshErr) {
+      // 文件可能还不存在（第一次创建）
+      state.sha = null;
+    }
+    
     if (state.sha) {
       await api.put(section.file, json, msg, state.sha);
     } else {
@@ -473,7 +482,10 @@ async function saveSection(){
     }
     state.changed=false;
     toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站自动更新', 'success');
-  } catch(e){ toast('❌ 保存失败：'+e.message,'error'); }
+  } catch(e){ 
+    console.error('保存出错详情:', e);
+    toast('❌ 保存失败：' + e.message, 'error'); 
+  }
   finally { btn.disabled=false; btn.innerHTML='💾 保存'; }
 }
 
