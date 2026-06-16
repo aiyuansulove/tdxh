@@ -380,7 +380,7 @@ async function openArticleEditor(file){
       const oldToolbar = container.querySelector('.ql-toolbar');
       if (oldToolbar) oldToolbar.remove();
       
-      quillArticle = new Quill('#quillArticleEditor', {
+      if (typeof Quill === 'undefined') { toast('⚠️ 富文本编辑器加载中，请稍后编辑','loading',5000); return; } quillArticle = new Quill('#quillArticleEditor', {
         theme: 'snow',
         modules: {
           toolbar: [
@@ -665,33 +665,10 @@ async function handleAIGenForField(btn){
   }
   if (!targetInput) { toast('⚠️ 找不到图片字段','error'); return; }
 
-  // 收集上下文 — 同组的 name/title + desc/text 字段
-  const container = targetInput.closest('.form-array-item') || targetInput.closest('.form-group')?.parentElement;
-  let promptParts = [];
-
-  if (container) {
-    // 尝试收集 name / title / exp / eraName 等名称类字段
-    for (const fieldKey of ['name','title','eraName','ctaText']) {
-      const inp = container.querySelector(`input[data-key="${fieldKey}"]`);
-      if (inp && inp.value.trim()) { promptParts.push(inp.value.trim()); break; }
-    }
-    // 尝试收集 desc / text / bio / exp 等描述类字段
-    for (const fieldKey of ['desc','text','bio','exp']) {
-      const inp = container.querySelector(`textarea[data-key="${fieldKey}"], input[data-key="${fieldKey}"]`);
-      if (inp && inp.value.trim()) { promptParts.push(inp.value.trim()); break; }
-    }
-  }
-
-  // 如果没有上下文，加一个默认描述
-  if (promptParts.length === 0) {
-    const sectionLabel = document.getElementById('editorTitle')?.textContent || '';
-    promptParts.push(sectionLabel.replace(/[^\u4e00-\u9fff\w]/g,''));
-  }
-
-  const prompt = promptParts.join('，') + '，高端产品摄影，精美商业质感，深色背景，金色点缀，细节丰富';
-  const size = '1024x768';
-
-  // Disable button & show loading
+  const userPrompt = prompt("🎨 输入AI生图的画面描述：", "");
+  if (!userPrompt || !userPrompt.trim()) return;
+  const sz = "1024x768";
+  btn.disabled = true;
   btn.disabled = true;
   const origText = btn.textContent;
   btn.textContent = '⏳';
@@ -700,7 +677,7 @@ async function handleAIGenForField(btn){
     const res = await fetch('https://apihub.agnes-ai.com/v1/images/generations', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: AI_MODEL, prompt, size, extra_body: { response_format: 'url' } })
+      body: JSON.stringify({ model: AI_MODEL, prompt: userPrompt.trim(), sz, extra_body: { response_format: 'url' } })
     });
     if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
     const data = await res.json();
@@ -877,31 +854,37 @@ function handleLogout(){
 }
 
 // ===== 初始化 =====
-function init(){
-  $('loginBtn').addEventListener('click', handleLogin);
-  $('tokenInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleLogin(); });
-  $('logoutBtn').addEventListener('click', handleLogout);
-  $('imageFileInput').addEventListener('change', e=>{
-    if(e.target.files&&e.target.files[0]){
-      const cb=imgCallback; 
-      const qCb = window._quillImageCallback;
-      imgCallback=null;
-      window._quillImageCallback = null;
-      if(cb || qCb) api.upload(e.target.files[0]).then(url=>{
-        if (cb) cb(url);
-        if (qCb) qCb(url);
-        toast('✅ 图片上传成功！','success');
-      }).catch(e=>{ toast('❌ '+e.message,'error'); });
+function init(){ console.log("admin init start, loginBtn=", );
+  try {
+    $('loginBtn').addEventListener('click', handleLogin);
+    $('tokenInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleLogin(); });
+    $('logoutBtn').addEventListener('click', handleLogout);
+    $('imageFileInput').addEventListener('change', e=>{
+      if(e.target.files&&e.target.files[0]){
+        const cb=imgCallback; 
+        const qCb = window._quillImageCallback;
+        imgCallback=null;
+        window._quillImageCallback = null;
+        if(cb || qCb) api.upload(e.target.files[0]).then(url=>{
+          if (cb) cb(url);
+          if (qCb) qCb(url);
+          toast('✅ 图片上传成功！','success');
+        }).catch(e=>{ toast('❌ '+e.message,'error'); });
+      }
+    });
+    document.addEventListener('keydown', e=>{
+      if((e.ctrlKey||e.metaKey)&&e.key==='s'){ const p=$('editorPanel'); if(p&&p.style.display!=='none'){ e.preventDefault(); saveSection(); } }
+    });
+    if(TOKEN){
+      (async()=>{
+        try{ const user=await api.verify(); $('loginScreen').style.display='none'; $('app').style.display='flex'; renderSidebar(); $('sidebarStatus').textContent='已连接 · '+user; toast('自动登录成功','success'); }
+        catch{ localStorage.removeItem('github_token'); TOKEN=''; }
+      })();
     }
-  });
-  document.addEventListener('keydown', e=>{
-    if((e.ctrlKey||e.metaKey)&&e.key==='s'){ const p=$('editorPanel'); if(p&&p.style.display!=='none'){ e.preventDefault(); saveSection(); } }
-  });
-  if(TOKEN){
-    (async()=>{
-      try{ const user=await api.verify(); $('loginScreen').style.display='none'; $('app').style.display='flex'; renderSidebar(); $('sidebarStatus').textContent='已连接 · '+user; toast('自动登录成功','success'); }
-      catch{ localStorage.removeItem('github_token'); TOKEN=''; }
-    })();
+  } catch(e) {
+    console.error('init error:', e);
+    $('loginScreen').style.display='flex';
+    $('app').style.display='none';
   }
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
