@@ -677,7 +677,7 @@ async function handleAIGenForField(btn){
     const res = await fetch('https://apihub.agnes-ai.com/v1/images/generations', {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: AI_MODEL, prompt, size, extra_body: { response_format: 'url' } })
+      body: JSON.stringify({ model: AI_MODEL, prompt: userPrompt.trim(), sz, extra_body: { response_format: 'url' } })
     });
     if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
     const data = await res.json();
