@@ -101,6 +101,8 @@ body {
 .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2);}
 .btn-outline:hover{border-color:var(--gold);color:var(--gold);}
 .btn-sm{padding:5px 12px;font-size:.8em;}
+.btn-danger{background:var(--danger);color:#fff;border:none;}
+.btn-danger:hover{background:#c0392b;}
 
 /* ===== Form Fields ===== */
 .form-group{margin-bottom:18px;}

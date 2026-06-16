@@ -1,10 +1,15 @@
 /**
- * 天地鲟鳇 · 后台管理 v2
- * 纯 GitHub API 驱动，线上线下一致
- * 保存 → GitHub → Actions 构建 → Pages 更新
+ * 天地鲟鳇 · 后台管理 v3
+ * 纯 GitHub API 驱动，保存→GitHub→Vercel→自动部署
+ * 
+ * 修复记录:
+ * v3 - 修复数组内图片上传无效、预览不更新、索引错位
+ * v2 - 修复文章保存按钮BUG、去掉relURL
+ * v1 - 初始版本
  */
 
 const CFG = { owner:'aiyuansulove', repo:'tdxh', branch:'master', api:'https://api.github.com' };
+const AI_API_KEY = 'sk-VWw0MUjMAE7NqHVlSn97rCl0JUAxfdWiTp9BS72jm36InupP';
 let TOKEN = localStorage.getItem('github_token') || '';
 
 const SECTIONS = [
@@ -20,6 +25,7 @@ const SECTIONS = [
   { id:'contact',        label:'📞 联系我们',          file:'data/homepage/contact.json', group:'首页内容' },
   { id:'news',           label:'📰 新闻动态',          file:'content/news', group:'文章管理', isFolder:true },
   { id:'about',          label:'📋 关于我们',          file:'content/about.md', group:'文章管理' },
+  { id:'ai_image',       label:'🤖 AI 生图',           file:'', group:'工具' },
 ];
 
 const SCHEMA = {
@@ -53,7 +59,8 @@ const SCHEMA = {
     { k:'image', label:'配图', t:'image' }, { k:'caption', label:'图片说明', t:'text' },
     { k:'paragraphs', label:'文字段落', t:'strArr', item:'段落' },
     { k:'stats', label:'统计数据', t:'array', item:'数据', fields:[
-      { k:'num', label:'数值', t:'text' }, { k:'label', label:'标签', t:'text' }, { k:'sublabel', label:'子标签', t:'text' } ]},
+      { k:'num', label:'数值', t:'text' }, { k:'label', label:'标签', t:'text' },
+      { k:'sublabel', label:'子标签', t:'text' } ]},
   ]},
   culture: { fields: [
     { k:'title', label:'板块标题', t:'text' }, { k:'subtitle', label:'副标题（英文）', t:'text' },
@@ -93,7 +100,11 @@ const api = {
   headers(){ return { Authorization:'token '+TOKEN, Accept:'application/vnd.github.v3+json' }; },
   async req(m, p, b){
     const r = await fetch(CFG.api+p, { method:m, headers:this.headers(), body:b?JSON.stringify(b):null });
-    if(!r.ok){ const e=await r.json().catch(()=>({message:r.statusText})); throw new Error(e.message); }
+    if(!r.ok){ 
+      let msg = r.statusText;
+      try { const e = await r.json(); if (e.message) msg = e.message; } catch(_) {}
+      throw new Error(`[${r.status}] ${msg}`); 
+    }
     return r.status===204?null:r.json();
   },
   async get(path){
@@ -116,6 +127,11 @@ const api = {
     return d.map(i=>({name:i.name,path:i.path,type:i.type,sha:i.sha}));
   },
   async verify(){ const d=await this.req('GET','/user'); return d.login; },
+  async del(path, msg, sha){
+    return this.req('DELETE', `/repos/${CFG.owner}/${CFG.repo}/contents/${path}`, {
+      message:msg, sha, branch:CFG.branch
+    });
+  },
   async upload(file){
     return new Promise((rs,rj)=>{
       if(!['image/jpeg','image/png','image/gif','image/webp'].includes(file.type)){ rj(new Error('仅支持 JPG/PNG/GIF/WebP')); return; }
@@ -145,6 +161,124 @@ function toast(msg, type='info', t=3500){
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), t);
 }
 
+// ===== AI 生图 =====
+const AI_ENDPOINT = 'https://apihub.agnes-ai.com/v1/images/generations';
+const AI_MODEL = 'agnes-image-2.1-flash';
+
+function openAIImageGen(){
+  showEditor('ai_image', 'AI 图像生成');
+  $('editorSaveBtn').style.display = 'none';
+  $('commitMsg').style.display = 'none';
+
+  const form = document.getElementById('sectionForm');
+  form.innerHTML = `
+    <style>
+      .ai-gen-container { max-width: 800px; margin: 0 auto; }
+      .ai-gen-container textarea { width:100%; padding:12px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:.95em; outline:none; font-family:inherit; resize:vertical; min-height:80px; line-height:1.6; }
+      .ai-gen-container textarea:focus { border-color:var(--gold); }
+      .ai-gen-container select, .ai-gen-container input[type=text] { width:100%; padding:9px 12px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:.9em; outline:none; font-family:inherit; }
+      .ai-gen-container select:focus, .ai-gen-container input:focus { border-color:var(--gold); }
+      .ai-gen-row { display:flex; gap:12px; flex-wrap:wrap; }
+      .ai-gen-row > div { flex:1; min-width:180px; }
+      .ai-gen-result { margin-top:20px; background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:20px; text-align:center; min-height:200px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+      .ai-gen-result img { max-width:100%; max-height:500px; border-radius:var(--radius-sm); }
+      .ai-gen-result .placeholder { color:var(--text3); font-size:.9em; }
+      .ai-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; justify-content:center; }
+    </style>
+    <div class="ai-gen-container">
+      <div class="form-group"><label class="form-label">🎨 画面描述（Prompt）</label>
+        <textarea id="aiPrompt" rows="4" placeholder="描述你想生成的画面，例如：一幅精美的鲟鳇鱼产品展示图，深色背景，金色灯光，高端质感..."></textarea></div>
+      <div class="ai-gen-row">
+        <div><label class="form-label">尺寸</label>
+        <select id="aiSize"><option value="1024x1024">1024×1024 方形</option><option value="1024x768" selected>1024×768 横屏</option><option value="768x1024">768×1024 竖屏</option><option value="1280x720">1280×720 宽屏</option></select></div>
+        <div><label class="form-label">参考图片（可选）</label>
+        <input type="text" id="aiRefImage" placeholder="粘贴图片 URL，或留空纯文生图"></div>
+      </div>
+      <button id="aiGenBtn" class="btn btn-primary" style="margin-top:16px;width:100%;justify-content:center;padding:14px">✨ 生成图片</button>
+      <div class="ai-gen-result" id="aiGenResult"><span class="placeholder">点击上方按钮生成图片</span></div>
+      <div class="ai-actions" id="aiGenActions" style="display:none">
+        <button class="btn btn-outline" onclick="copyAIImageUrl()">📋 复制图片 URL</button>
+        <button class="btn btn-outline" onclick="downloadAIImage()">💾 下载图片</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('aiGenBtn').addEventListener('click', generateAIImage);
+  document.getElementById('aiPrompt').addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter') generateAIImage(); });
+}
+
+let lastAIImageUrl = '';
+
+async function generateAIImage(){
+  const prompt = document.getElementById('aiPrompt').value.trim();
+  if(!prompt){ toast('⚠️ 请输入画面描述','error'); return; }
+
+  const size = document.getElementById('aiSize').value;
+  const refImage = document.getElementById('aiRefImage').value.trim();
+  const btn = document.getElementById('aiGenBtn');
+  const resultDiv = document.getElementById('aiGenResult');
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 生成中...（约 10-30 秒）';
+  resultDiv.innerHTML = '<span class="placeholder"><span class="spinner"></span> 正在生成图片...</span>';
+
+  try {
+    let body = { model: AI_MODEL, prompt, size };
+
+    if (refImage) {
+      // 图生图
+      body.extra_body = { image: [refImage], response_format: 'url' };
+    } else {
+      // 文生图
+      body.extra_body = { response_format: 'url' };
+    }
+
+    const res = await fetch(AI_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
+
+    const data = await res.json();
+    const imageUrl = data.data?.[0]?.url;
+
+    if(imageUrl){
+      lastAIImageUrl = imageUrl;
+      resultDiv.innerHTML = `<img src="${imageUrl}" alt="AI 生成图片">`;
+      document.getElementById('aiGenActions').style.display = 'flex';
+      toast('✅ 图片生成成功！','success');
+    } else {
+      throw new Error('返回数据中未找到图片 URL');
+    }
+  } catch(e) {
+    resultDiv.innerHTML = `<span class="placeholder" style="color:var(--danger)">❌ 生成失败：${e.message}</span>`;
+    toast('❌ 生成失败：' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '✨ 生成图片';
+  }
+}
+
+function copyAIImageUrl(){
+  if(!lastAIImageUrl) return;
+  navigator.clipboard.writeText(lastAIImageUrl).then(()=>{
+    toast('✅ 图片 URL 已复制到剪贴板','success');
+  }).catch(()=>{
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = lastAIImageUrl; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    toast('✅ 图片 URL 已复制','success');
+  });
+}
+
+function downloadAIImage(){
+  if(!lastAIImageUrl) return;
+  window.open(lastAIImageUrl, '_blank');
+  toast('✅ 图片已在新标签页打开，右键可保存','success');
+}
+
 // ===== 侧边栏 =====
 function renderSidebar(){
   const nav=document.getElementById('sidebarNav');
@@ -164,6 +298,7 @@ function renderSidebar(){
       const id=btn.dataset.id, file=btn.dataset.file;
       if(id==='news') openNewsManager();
       else if(id==='about') openArticleEditor(file);
+      else if(id==='ai_image') openAIImageGen();
       else openSectionEditor(id, file);
     });
   });
@@ -180,12 +315,14 @@ async function openSectionEditor(id, file){
     state.sha = f.sha; state.data = data; state.changed = false;
     renderForm(id, data);
   } catch(e){
-    toast('❌ 加载失败：' + e.message + '。请检查 GitHub Token 是否有 repo 权限', 'error');
+    toast('❌ 加载失败：' + e.message, 'error');
     console.error(e);
   }
 }
 
 // ===== 文章编辑器 =====
+let quillArticle = null;  // Quill 文章编辑器实例
+
 async function openArticleEditor(file){
   try {
     showEditor('article', file);
@@ -194,14 +331,108 @@ async function openArticleEditor(file){
     articleState = { sha:f.sha, path:file, parsed };
     const form = document.getElementById('sectionForm');
     form.innerHTML = `
+      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+        <button id="artBackBtn" class="btn btn-outline" onclick="openNewsManager()">← 返回列表</button>
+        <button id="artDeleteBtn" class="btn btn-danger" style="margin-left:auto">🗑️ 删除本文</button>
+      </div>
+      <style>
+      <style>
+        #quillArticleContainer { display:flex; flex-direction:column; height:500px; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
+        #quillArticleContainer .ql-toolbar { background:var(--bg-sidebar); border:none; border-bottom:1px solid var(--border); flex-shrink:0; }
+        #quillArticleContainer .ql-container { flex:1; overflow-y:auto; background:var(--bg-dark); font-family:"PingFang SC","Microsoft YaHei",sans-serif; font-size:1em; color:var(--text); }
+        #quillArticleContainer .ql-container .ql-editor { min-height:300px; padding:20px; line-height:1.9; color:var(--text-primary); }
+        #quillArticleContainer .ql-editor.ql-blank::before { color:var(--text-muted); font-style:normal; left:20px; }
+        #quillArticleContainer .ql-editor h1 { color:var(--gold); font-size:1.6em; }
+        #quillArticleContainer .ql-editor h2 { color:var(--gold-light); font-size:1.35em; }
+        #quillArticleContainer .ql-editor strong { color:var(--gold); }
+        #quillArticleContainer .ql-editor blockquote { border-left:3px solid var(--gold); padding-left:16px; color:var(--text2); }
+        #quillArticleContainer .ql-editor img { max-width:100%; border-radius:6px; }
+        #quillArticleContainer .ql-snow .ql-stroke { stroke:var(--text2); }
+        #quillArticleContainer .ql-snow .ql-fill { fill:var(--text2); }
+        #quillArticleContainer .ql-snow .ql-picker-label { color:var(--text2); }
+        #quillArticleContainer .ql-snow .ql-picker-options { background:var(--bg-card); border-color:var(--border); }
+        #quillArticleContainer .ql-snow .ql-picker-item { color:var(--text); }
+        #quillArticleContainer .ql-toolbar button:hover .ql-stroke,
+        #quillArticleContainer .ql-toolbar button.ql-active .ql-stroke { stroke:var(--gold); }
+        #quillArticleContainer .ql-toolbar button:hover .ql-fill,
+        #quillArticleContainer .ql-toolbar button.ql-active .ql-fill { fill:var(--gold); }
+        #quillArticleContainer .ql-toolbar button:hover,
+        #quillArticleContainer .ql-toolbar button.ql-active { color:var(--gold); }
+      </style>
       <div class="form-group"><label class="form-label">标题</label><input type="text" id="artTitle" class="form-input" value="${esc(parsed.title)}"></div>
       <div class="form-group"><label class="form-label">日期</label><input type="date" id="artDate" class="form-input" value="${parsed.date}"></div>
-      <div class="form-group"><label class="form-label">内容（HTML / Markdown）</label>
-        <textarea id="artBody" class="form-textarea" rows="18" style="font-family:monospace;font-size:.9em;line-height:1.7">${esc(parsed.body)}</textarea>
-        <div class="form-hint">支持 HTML 格式</div></div>`;
+      <div class="form-group"><label class="form-label">正文内容</label>
+        <div id="quillArticleContainer"><div id="quillArticleEditor"></div></div>
+        <div class="form-hint">支持文字样式、颜色、图片上传、链接等</div></div>`;
     state.changed=false;
     $('commitMsg').value = '更新 ' + file.split('/').pop();
     $('editorSaveBtn').onclick = saveArticle;
+
+    // 初始化 Quill 编辑器
+    if (quillArticle) { quillArticle = null; }
+    // 确保编辑器的容器存在
+    setTimeout(() => {
+      const editorEl = document.getElementById('quillArticleEditor');
+      if (!editorEl) return;
+      
+      // 清理旧的 Quill 实例
+      const container = document.getElementById('quillArticleContainer');
+      const oldToolbar = container.querySelector('.ql-toolbar');
+      if (oldToolbar) oldToolbar.remove();
+      
+      quillArticle = new Quill('#quillArticleEditor', {
+        theme: 'snow',
+        modules: {
+          toolbar: [
+            [{ 'header': [1, 2, 3, false] }],
+            ['bold', 'italic', 'underline', 'strike'],
+            [{ 'color': [] }, { 'background': [] }],
+            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+            ['blockquote', 'code-block'],
+            [{ 'align': [] }],
+            [{ 'script': 'sub'}, { 'script': 'super' }],
+            [{ 'indent': '-1'}, { 'indent': '+1' }],
+            ['link', 'image'],
+            ['clean'],
+          ],
+        },
+        placeholder: '在此输入新闻内容...',
+      });
+
+      // 填入已有内容
+      const body = parsed.body || '';
+      if (body.includes('<') && body.includes('>')) {
+        quillArticle.root.innerHTML = body;
+      } else if (body.trim()) {
+        quillArticle.setText('');
+        quillArticle.root.innerHTML = body.replace(/\n/g, '<br>');
+      }
+
+      // 图片上传处理
+      quillArticle.getModule('toolbar').addHandler('image', () => {
+        $('imageFileInput').click();
+      });
+
+      // 内容变化标记
+      quillArticle.on('text-change', () => { state.changed = true; });
+
+      // 监听到图片上传完成自动插入
+      const origUploadCb = window._quillImageCallback;
+      window._quillImageCallback = (url) => {
+        if (quillArticle) {
+          const range = quillArticle.getSelection(true);
+          quillArticle.insertEmbed(range.index, 'image', url);
+          quillArticle.setSelection(range.index + 1);
+        }
+      };
+    }, 50);
+
+    // 绑定删除按钮
+    setTimeout(() => {
+      const delBtn = document.getElementById('artDeleteBtn');
+      if (delBtn) delBtn.onclick = () => deleteArticle(file);
+    }, 100);
+
   } catch(e){ toast('❌ 加载失败：'+e.message, 'error'); }
 }
 
@@ -209,7 +440,10 @@ async function saveArticle(){
   if(!articleState) return;
   const title = $('artTitle').value.trim() || '无标题';
   const date = $('artDate').value || new Date().toISOString().split('T')[0];
-  const body = $('artBody').value || '';
+  // 从 Quill 获取 HTML 内容
+  const body = (quillArticle && quillArticle.root) 
+    ? quillArticle.root.innerHTML 
+    : ($('artBody') ? $('artBody').value : '');
   const fm = {...articleState.parsed.frontMatter, title, date};
   const content = '---\n' + Object.entries(fm).map(([k,v])=>{
     const q = v.includes(':')||v.includes('#')||/\s/.test(v);
@@ -220,9 +454,9 @@ async function saveArticle(){
   try {
     const r = await api.put(articleState.path, content, msg, articleState.sha);
     articleState.sha = r.content.sha; state.changed=false;
-    toast('✅ 保存成功！GitHub Actions 正在自动构建，1-3 分钟后网站更新', 'success');
+    toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站更新', 'success');
   } catch(e){ toast('❌ 保存失败：'+e.message,'error'); }
-  finally { btn.disabled=false; btn.innerHTML='💾 保存'; /* keep saveArticle as handler - the caller openArticleEditor already sets onclick */ }
+  finally { btn.disabled=false; btn.innerHTML='💾 保存'; }
 }
 
 // ===== 新闻列表 =====
@@ -243,12 +477,42 @@ async function openNewsManager(){
         <span style="color:var(--text2);font-size:.9em">共 ${items.length} 篇</span>
         <button id="createNewsBtn" class="btn btn-primary btn-sm" style="margin-left:auto">+ 新建文章</button></div>
       ${items.map(item=>`
-        <div class="form-array-item" style="cursor:pointer" onclick="openArticleEditor('${item.path}')">
+        <div class="form-array-item" style="cursor:pointer">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <div><strong>${esc(item.title)}</strong><br><span style="font-size:.78em;color:var(--text3)">${item.path}${item.date?' · '+item.date:''}</span></div>
-            <span style="color:var(--gold);font-size:.8em">✏️ 编辑</span></div></div>`).join('')}`;
+            <div style="flex:1;cursor:pointer" onclick="openArticleEditor('${item.path}')">
+              <strong>${esc(item.title)}</strong><br>
+              <span style="font-size:.78em;color:var(--text3)">${item.path}${item.date?' · '+item.date:''}</span>
+            </div>
+            <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="event.stopPropagation();deleteArticleFromList('${item.path}')">🗑️</button>
+          </div></div>`).join('')}`;
     $('createNewsBtn').addEventListener('click', createNewsArticle);
   } catch(e){ toast('❌ 加载失败：'+e.message,'error'); }
+}
+
+// ===== 删除文章 =====
+async function deleteArticle(path) {
+  if (!confirm('确定要删除这篇文章吗？此操作不可撤销。')) return;
+  const f = await api.get(path);
+  const btn = document.getElementById('artDeleteBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 删除中...'; }
+  try {
+    await api.del(path, '删除: ' + path.split('/').pop(), f.sha);
+    toast('✅ 文章已删除！','success');
+    openNewsManager();
+  } catch(e) {
+    toast('❌ 删除失败：'+e.message,'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🗑️ 删除本文'; }
+  }
+}
+
+async function deleteArticleFromList(path) {
+  if (!confirm('确定删除这篇文章吗？')) return;
+  const f = await api.get(path);
+  try {
+    await api.del(path, '删除: ' + path.split('/').pop(), f.sha);
+    toast('✅ 已删除','success');
+    openNewsManager();
+  } catch(e) { toast('❌ 删除失败：'+e.message,'error'); }
 }
 
 async function createNewsArticle(){
@@ -301,6 +565,27 @@ function showEditor(id, file){
   state.editing=id; state.changed=false;
 }
 
+// ===== 更新图片预览 =====
+function updateImagePreview(input) {
+  if (!input) return;
+  const group = input.closest('.form-group');
+  if (!group) return;
+  const preview = group.querySelector('.form-image-preview');
+  if (!preview) {
+    // 如果没有预览元素（上传前），创建一个
+    const path = input.value;
+    if (!path) return;
+    const div = document.createElement('div');
+    div.className = 'form-image-preview';
+    div.innerHTML = `<img src="${esc(path)}" onerror="this.style.display='none'"><span class="form-image-path">${esc(path)}</span>`;
+    group.appendChild(div);
+  } else {
+    preview.querySelector('img').src = input.value;
+    preview.querySelector('.form-image-path').textContent = input.value;
+    preview.querySelector('img').style.display = '';
+  }
+}
+
 // ===== 表单渲染 =====
 function renderForm(id, data){
   const schema=SCHEMA[id]; const form=$('sectionForm');
@@ -308,19 +593,28 @@ function renderForm(id, data){
   let html=''; schema.fields.forEach(f=>{ html+=renderField(f,data); });
   form.innerHTML=html;
   $('commitMsg').value = '更新首页: '+(SECTIONS.find(s=>s.id===id)?.label||id);
+  
+  // 绑定添加/删除按钮
   form.querySelectorAll('.array-add-btn').forEach(btn=>{ btn.onclick=e=>{addArrayItem(id,btn.dataset.key);}; });
   form.querySelectorAll('.array-del-btn').forEach(btn=>{ btn.onclick=e=>{removeArrayItem(id,btn.dataset.key,parseInt(btn.dataset.idx));}; });
+  
+  // 绑定图片上传按钮
   form.querySelectorAll('.img-upload-btn').forEach(btn=>{
     btn.onclick=e=>{
-      const key=btn.dataset.key, idx=btn.dataset.idx, sub=btn.dataset.sub;
-      imgCallback=url=>{
-        if(sub){ const inp=document.querySelector(`input[data-key="${sub}"][data-idx="${idx}"]`); if(inp) inp.value=url; }
-        else { const inp=document.querySelector(`input[data-key="${key}"]:not([data-idx])`); if(inp) inp.value=url; }
-        state.changed=true;
-      };
+      const key=btn.dataset.key; const idx=btn.dataset.idx;
+      let targetInput = idx !== undefined
+        ? document.querySelector(`input[data-key="${key}"][data-idx="${idx}"]`)
+        : document.querySelector(`input[data-key="${key}"]:not([data-idx])`);
+      imgCallback = url => { if (targetInput) { targetInput.value = url; updateImagePreview(targetInput); } state.changed = true; };
       $('imageFileInput').click();
     };
   });
+  
+  // 绑定 AI 生图按钮
+  form.querySelectorAll('.ai-gen-btn').forEach(btn=>{
+    btn.onclick = e => { handleAIGenForField(btn); };
+  });
+
   form.querySelectorAll('input,textarea').forEach(el=>{ el.oninput=()=>{state.changed=true;}; });
 }
 
@@ -331,7 +625,8 @@ function renderField(f,data,isArr,idx,parentKey){
   if(f.t==='textarea') return `<div class="form-group"><label class="form-label">${f.label}</label><textarea class="form-textarea" rows="3" data-key="${f.k}" ${di}>${esc(val||'')}</textarea></div>`;
   if(f.t==='image') return `<div class="form-group"><label class="form-label">${f.label}</label>
     <div class="form-image-row"><input type="text" class="form-input" data-key="${f.k}" ${di} value="${esc(val||'')}" placeholder="图片路径或URL">
-    <button class="btn btn-outline btn-sm img-upload-btn" data-key="${f.k}" ${idx!==false?`data-idx="${idx}"`:''}>上传</button></div>
+    <button class="btn btn-outline btn-sm img-upload-btn" data-key="${f.k}" ${di}>本地</button>
+    <button class="btn btn-primary btn-sm ai-gen-btn" data-key="${f.k}" ${di} ${isArr?`data-arr-item="${idx}"`:''}>🤖 AI</button></div>
     ${val?`<div class="form-image-preview"><img src="${esc(val)}" onerror="this.style.display='none'"><span class="form-image-path">${esc(val)}</span></div>`:''}</div>`;
   if(f.t==='strArr'){
     const arr=Array.isArray(val)?val:[];
@@ -354,6 +649,77 @@ function renderField(f,data,isArr,idx,parentKey){
   return '';
 }
 
+// ===== AI 生图 → 直接填充图片字段 =====
+async function handleAIGenForField(btn){
+  const key=btn.dataset.key;        // 图片字段名
+  const idx=btn.dataset.idx;        // 数组索引
+  const arrItem=btn.dataset.arrItem; // 数组内索引
+
+  // 找到目标输入框
+  let targetInput;
+  if (idx !== undefined || arrItem !== undefined) {
+    const i = idx || arrItem;
+    targetInput = document.querySelector(`input[data-key="${key}"][data-idx="${i}"]`);
+  } else {
+    targetInput = document.querySelector(`input[data-key="${key}"]:not([data-idx])`);
+  }
+  if (!targetInput) { toast('⚠️ 找不到图片字段','error'); return; }
+
+  // 收集上下文 — 同组的 name/title + desc/text 字段
+  const container = targetInput.closest('.form-array-item') || targetInput.closest('.form-group')?.parentElement;
+  let promptParts = [];
+
+  if (container) {
+    // 尝试收集 name / title / exp / eraName 等名称类字段
+    for (const fieldKey of ['name','title','eraName','ctaText']) {
+      const inp = container.querySelector(`input[data-key="${fieldKey}"]`);
+      if (inp && inp.value.trim()) { promptParts.push(inp.value.trim()); break; }
+    }
+    // 尝试收集 desc / text / bio / exp 等描述类字段
+    for (const fieldKey of ['desc','text','bio','exp']) {
+      const inp = container.querySelector(`textarea[data-key="${fieldKey}"], input[data-key="${fieldKey}"]`);
+      if (inp && inp.value.trim()) { promptParts.push(inp.value.trim()); break; }
+    }
+  }
+
+  // 如果没有上下文，加一个默认描述
+  if (promptParts.length === 0) {
+    const sectionLabel = document.getElementById('editorTitle')?.textContent || '';
+    promptParts.push(sectionLabel.replace(/[^\u4e00-\u9fff\w]/g,''));
+  }
+
+  const prompt = promptParts.join('，') + '，高端产品摄影，精美商业质感，深色背景，金色点缀，细节丰富';
+  const size = '1024x768';
+
+  // Disable button & show loading
+  btn.disabled = true;
+  const origText = btn.textContent;
+  btn.textContent = '⏳';
+
+  try {
+    const res = await fetch('https://apihub.agnes-ai.com/v1/images/generations', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: AI_MODEL, prompt, size, extra_body: { response_format: 'url' } })
+    });
+    if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
+    const data = await res.json();
+    const imgUrl = data.data?.[0]?.url;
+    if (!imgUrl) throw new Error('未获取到图片 URL');
+
+    targetInput.value = imgUrl;
+    updateImagePreview(targetInput);
+    state.changed = true;
+    toast('✅ AI 图片生成成功，已自动填入','success');
+  } catch(e) {
+    toast('❌ AI 生图失败：'+e.message,'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🤖 AI';
+  }
+}
+
+// ===== 数组操作 =====
 function addArrayItem(sectionId,key){
   const field=SCHEMA[sectionId].fields.find(f=>f.k===key); if(!field) return;
   if(field.t==='strArr'){
@@ -372,7 +738,22 @@ function addArrayItem(sectionId,key){
   d.innerHTML=`<div class="form-array-item-header"><span class="form-array-item-idx">#${n+1} ${field.item||''}</span><button class="form-array-del array-del-btn" data-key="${key}" data-idx="${n}">✕ 删除</button></div>${field.fields.map(sf=>renderField(sf,empty,true,n)).join('')}`;
   div.insertBefore(d, div.querySelector('.form-array-add'));
   d.querySelector('.array-del-btn').onclick=()=>{removeArrayItem(sectionId,key,n);};
-  d.querySelectorAll('.img-upload-btn').forEach(btn=>{btn.onclick=e=>{const sk=btn.dataset.key;imgCallback=url=>{const inp=document.querySelector(`input[data-key="${sk}"][data-idx="${n}"]`);if(inp)inp.value=url;state.changed=true;};$('imageFileInput').click();};});
+  
+  // 为新增项绑定图片上传
+  d.querySelectorAll('.img-upload-btn').forEach(btn=>{
+    btn.onclick=e=>{
+      const sk=btn.dataset.key;
+      const inp = d.querySelector(`input[data-key="${sk}"]`);
+      imgCallback=url=>{ if(inp){ inp.value=url; updateImagePreview(inp); } state.changed=true; };
+      $('imageFileInput').click();
+    };
+  });
+  
+  // 为新增项绑定 AI 生图
+  d.querySelectorAll('.ai-gen-btn').forEach(btn=>{
+    btn.onclick = e => { handleAIGenForField(btn); };
+  });
+  
   d.querySelectorAll('input,textarea').forEach(el=>{el.oninput=()=>{state.changed=true;};});
   state.changed=true;
 }
@@ -381,21 +762,36 @@ function removeArrayItem(sectionId,key,idx){
   const field=SCHEMA[sectionId].fields.find(f=>f.k===key); if(!field) return;
   const container=$((field.t==='strArr'?'sa-':'arr-')+key); if(!container) return;
   const items=container.querySelectorAll('.form-array-item');
-  if(items[idx]){items[idx].remove();state.changed=true;}
+  if(items[idx]){items[idx].remove();}
+  // 🔥 重新索引剩余的 items，防止 collectData 错位
+  container.querySelectorAll('.form-array-item').forEach((item,i)=>{
+    // 更新 data-idx
+    const inputs = item.querySelectorAll('[data-idx]');
+    if (inputs.length) {
+      inputs.forEach(el => { el.dataset.idx = i; });
+    } else {
+      item.dataset.idx = i;
+    }
+    // 更新显示序号
+    const label = item.querySelector('.form-array-item-idx');
+    if (label) label.textContent = `#${i+1}`;
+  });
+  state.changed=true;
 }
 
 function collectData(sectionId){
   const schema=SCHEMA[sectionId]; if(!schema) return null;
   const r={};
   schema.fields.forEach(f=>{
-    if(f.t==='array'){ const arr=[]; const div=$('arr-'+f.k); if(div) div.querySelectorAll('.form-array-item').forEach((item,i)=>{const o={};f.fields.forEach(sf=>{const inp=item.querySelector(`[data-key="${sf.k}"][data-idx="${i}"]`);o[sf.k]=inp?inp.value:'';});arr.push(o);}); r[f.k]=arr; }
-    else if(f.t==='strArr'){ const arr=[]; const div=$('sa-'+f.k); if(div) div.querySelectorAll('.form-array-item').forEach((item,i)=>{const inp=item.querySelector(`[data-key="${f.k}"][data-idx="${i}"]`);if(inp)arr.push(inp.value);}); r[f.k]=arr; }
+    if(f.t==='array'){ const arr=[]; const div=$('arr-'+f.k); if(div) div.querySelectorAll('.form-array-item').forEach((item,i)=>{const o={};f.fields.forEach(sf=>{const inp=item.querySelector(`input[data-key="${sf.k}"],textarea[data-key="${sf.k}"]`);o[sf.k]=inp?inp.value:'';});arr.push(o);}); r[f.k]=arr; }
+    else if(f.t==='strArr'){ const arr=[]; const div=$('sa-'+f.k); if(div) div.querySelectorAll('.form-array-item').forEach((item,i)=>{const inp=item.querySelector(`textarea[data-key="${f.k}"]`);if(inp)arr.push(inp.value);}); r[f.k]=arr; }
     else { const inp=document.querySelector(`[data-key="${f.k}"]:not([data-idx])`); r[f.k]=inp?inp.value:''; }
   });
   return r;
 }
 
-// ===== 保存 → GitHub API → Actions 自动构建部署 =====
+// ===== 保存 =====
+// 🔥 v4 修复：自动处理 SHA 冲突，保存前强制刷新 SHA，失败后自动重试
 async function saveSection(){
   const id=state.editing;
   if(!id){ toast('⚠️ 没有打开的文件','error'); return; }
@@ -406,17 +802,52 @@ async function saveSection(){
   const json = JSON.stringify(data, null, 2) + '\n';
   const msg = $('commitMsg').value.trim() || '更新首页: '+(section.label||id);
   const btn=$('editorSaveBtn'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 保存中...';
-  try {
-    if (state.sha) {
-      await api.put(section.file, json, msg, state.sha);
-    } else {
-      const r = await api.create(section.file, json, msg);
-      state.sha = r.content.sha;
+
+  // 最多重试 3 次
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      // 每次重试时都重新读取最新 SHA
+      try {
+        const latest = await api.get(section.file);
+        state.sha = latest.sha;
+      } catch(refreshErr) {
+        // 文件还不存在（首次创建）
+        state.sha = null;
+      }
+
+      if (state.sha) {
+        await api.put(section.file, json, msg, state.sha);
+      } else {
+        const r = await api.create(section.file, json, msg);
+        state.sha = r.content.sha;
+      }
+      
+      state.changed=false;
+      toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站自动更新', 'success');
+      btn.disabled=false; btn.innerHTML='💾 保存';
+      return; // 成功，退出
+      
+    } catch(e) {
+      const errMsg = e.message || '';
+      console.error(`保存尝试 ${attempt+1}/3 失败:`, e);
+      
+      // SHA 冲突或 HTTP 409/422 → 重试
+      const isShaConflict = errMsg.includes('sha') || errMsg.includes('match') || 
+                            errMsg.includes('[409]') || errMsg.includes('[422]');
+      
+      if (isShaConflict && attempt < 2) {
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+      
+      // 其他错误或者重试用完，报告错误
+      toast('❌ 保存失败：' + errMsg, 'error');
+      btn.disabled=false; btn.innerHTML='💾 保存';
+      return;
     }
-    state.changed=false;
-    toast('✅ 保存成功！GitHub Actions 正在自动构建，1-3 分钟后网站自动更新', 'success');
-  } catch(e){ toast('❌ 保存失败：'+e.message,'error'); }
-  finally { btn.disabled=false; btn.innerHTML='💾 保存'; }
+  }
+  
+  btn.disabled=false; btn.innerHTML='💾 保存';
 }
 
 // ===== 认证 =====
@@ -452,8 +883,15 @@ function init(){
   $('logoutBtn').addEventListener('click', handleLogout);
   $('imageFileInput').addEventListener('change', e=>{
     if(e.target.files&&e.target.files[0]){
-      const cb=imgCallback; imgCallback=null;
-      if(cb) api.upload(e.target.files[0]).then(url=>{cb(url);toast('✅ 图片上传成功！','success');}).catch(e=>{toast('❌ '+e.message,'error');});
+      const cb=imgCallback; 
+      const qCb = window._quillImageCallback;
+      imgCallback=null;
+      window._quillImageCallback = null;
+      if(cb || qCb) api.upload(e.target.files[0]).then(url=>{
+        if (cb) cb(url);
+        if (qCb) qCb(url);
+        toast('✅ 图片上传成功！','success');
+      }).catch(e=>{ toast('❌ '+e.message,'error'); });
     }
   });
   document.addEventListener('keydown', e=>{
