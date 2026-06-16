@@ -380,7 +380,7 @@ async function openArticleEditor(file){
       const oldToolbar = container.querySelector('.ql-toolbar');
       if (oldToolbar) oldToolbar.remove();
       
-      quillArticle = new Quill('#quillArticleEditor', {
+      if (typeof Quill === 'undefined') { toast('⚠️ 富文本编辑器加载中，请稍后编辑','loading',5000); .onclick = saveSection; return; } quillArticle = new Quill('#quillArticleEditor', {
         theme: 'snow',
         modules: {
           toolbar: [
@@ -877,31 +877,37 @@ function handleLogout(){
 }
 
 // ===== 初始化 =====
-function init(){
-  $('loginBtn').addEventListener('click', handleLogin);
-  $('tokenInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleLogin(); });
-  $('logoutBtn').addEventListener('click', handleLogout);
-  $('imageFileInput').addEventListener('change', e=>{
-    if(e.target.files&&e.target.files[0]){
-      const cb=imgCallback; 
-      const qCb = window._quillImageCallback;
-      imgCallback=null;
-      window._quillImageCallback = null;
-      if(cb || qCb) api.upload(e.target.files[0]).then(url=>{
-        if (cb) cb(url);
-        if (qCb) qCb(url);
-        toast('✅ 图片上传成功！','success');
-      }).catch(e=>{ toast('❌ '+e.message,'error'); });
+function init(){ console.log("admin init start, loginBtn=", );
+  try {
+    $('loginBtn').addEventListener('click', handleLogin);
+    $('tokenInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleLogin(); });
+    $('logoutBtn').addEventListener('click', handleLogout);
+    $('imageFileInput').addEventListener('change', e=>{
+      if(e.target.files&&e.target.files[0]){
+        const cb=imgCallback; 
+        const qCb = window._quillImageCallback;
+        imgCallback=null;
+        window._quillImageCallback = null;
+        if(cb || qCb) api.upload(e.target.files[0]).then(url=>{
+          if (cb) cb(url);
+          if (qCb) qCb(url);
+          toast('✅ 图片上传成功！','success');
+        }).catch(e=>{ toast('❌ '+e.message,'error'); });
+      }
+    });
+    document.addEventListener('keydown', e=>{
+      if((e.ctrlKey||e.metaKey)&&e.key==='s'){ const p=$('editorPanel'); if(p&&p.style.display!=='none'){ e.preventDefault(); saveSection(); } }
+    });
+    if(TOKEN){
+      (async()=>{
+        try{ const user=await api.verify(); $('loginScreen').style.display='none'; $('app').style.display='flex'; renderSidebar(); $('sidebarStatus').textContent='已连接 · '+user; toast('自动登录成功','success'); }
+        catch{ localStorage.removeItem('github_token'); TOKEN=''; }
+      })();
     }
-  });
-  document.addEventListener('keydown', e=>{
-    if((e.ctrlKey||e.metaKey)&&e.key==='s'){ const p=$('editorPanel'); if(p&&p.style.display!=='none'){ e.preventDefault(); saveSection(); } }
-  });
-  if(TOKEN){
-    (async()=>{
-      try{ const user=await api.verify(); $('loginScreen').style.display='none'; $('app').style.display='flex'; renderSidebar(); $('sidebarStatus').textContent='已连接 · '+user; toast('自动登录成功','success'); }
-      catch{ localStorage.removeItem('github_token'); TOKEN=''; }
-    })();
+  } catch(e) {
+    console.error('init error:', e);
+    $('loginScreen').style.display='flex';
+    $('app').style.display='none';
   }
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init);
