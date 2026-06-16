@@ -380,7 +380,7 @@ async function openArticleEditor(file){
       const oldToolbar = container.querySelector('.ql-toolbar');
       if (oldToolbar) oldToolbar.remove();
       
-      if (typeof Quill === 'undefined') { toast('⚠️ 富文本编辑器加载中，请稍后编辑','loading',5000); .onclick = saveSection; return; } quillArticle = new Quill('#quillArticleEditor', {
+      if (typeof Quill === 'undefined') { toast('⚠️ 富文本编辑器加载中，请稍后编辑','loading',5000); return; } quillArticle = new Quill('#quillArticleEditor', {
         theme: 'snow',
         modules: {
           toolbar: [
@@ -665,33 +665,10 @@ async function handleAIGenForField(btn){
   }
   if (!targetInput) { toast('⚠️ 找不到图片字段','error'); return; }
 
-  // 收集上下文 — 同组的 name/title + desc/text 字段
-  const container = targetInput.closest('.form-array-item') || targetInput.closest('.form-group')?.parentElement;
-  let promptParts = [];
-
-  if (container) {
-    // 尝试收集 name / title / exp / eraName 等名称类字段
-    for (const fieldKey of ['name','title','eraName','ctaText']) {
-      const inp = container.querySelector(`input[data-key="${fieldKey}"]`);
-      if (inp && inp.value.trim()) { promptParts.push(inp.value.trim()); break; }
-    }
-    // 尝试收集 desc / text / bio / exp 等描述类字段
-    for (const fieldKey of ['desc','text','bio','exp']) {
-      const inp = container.querySelector(`textarea[data-key="${fieldKey}"], input[data-key="${fieldKey}"]`);
-      if (inp && inp.value.trim()) { promptParts.push(inp.value.trim()); break; }
-    }
-  }
-
-  // 如果没有上下文，加一个默认描述
-  if (promptParts.length === 0) {
-    const sectionLabel = document.getElementById('editorTitle')?.textContent || '';
-    promptParts.push(sectionLabel.replace(/[^\u4e00-\u9fff\w]/g,''));
-  }
-
-  const prompt = promptParts.join('，') + '，高端产品摄影，精美商业质感，深色背景，金色点缀，细节丰富';
-  const size = '1024x768';
-
-  // Disable button & show loading
+  const userPrompt = prompt("🎨 输入AI生图的画面描述：", "");
+  if (!userPrompt || !userPrompt.trim()) return;
+  const sz = "1024x768";
+  btn.disabled = true;
   btn.disabled = true;
   const origText = btn.textContent;
   btn.textContent = '⏳';
