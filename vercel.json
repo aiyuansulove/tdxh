@@ -1,5 +1,12 @@
 {
   "buildCommand": "curl -sL https://github.com/gohugoio/hugo/releases/download/v0.161.1/hugo_extended_0.161.1_Linux-64bit.tar.gz -o hugo.tar.gz && tar -xzf hugo.tar.gz && rm hugo.tar.gz && ./hugo --minify --baseURL https://tdxh01.xyz/",
   "installCommand": "",
-  "outputDirectory": "public"
+  "outputDirectory": "public",
+  "redirects": [
+    {
+      "source": "/admin",
+      "destination": "/admin/",
+      "permanent": true
+    }
+  ]
 }
