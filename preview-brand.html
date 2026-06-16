@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天地鲟鳇 — 传承千年鱼文化</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@200;300;400;500;600;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap" rel="stylesheet">
+<style>
+:root{--gold:#C9A96E;--gold-light:#e8d5a3;--gold-dim:#8b6f3a;--black:#08080c;--black-soft:#0f0f15;--black-warm:#14141a;--cream:#f0eadb;--text:#c8c4bb;--text-dim:#7a7670;--muted:#5a5650;--border:rgba(201,169,110,0.12);--ease:cubic-bezier(0.19,1,0.22,1)}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth;background:var(--black)}
+body{font-family:"Noto Serif SC",serif;background:var(--black);color:var(--text);line-height:1.8;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;background:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");background-size:200px}
+.nav-top{position:fixed;top:0;left:0;right:0;z-index:100;padding:20px 60px;display:flex;justify-content:space-between;align-items:center;transition:background .4s}
+.nav-top.scrolled{background:rgba(8,8,12,.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.nav-logo{font-size:1rem;letter-spacing:.2em;color:var(--gold);font-weight:500}
+.nav-links{display:flex;gap:32px;list-style:none}
+.nav-links a{font-size:.75rem;letter-spacing:.15em;color:var(--text-dim);text-transform:uppercase;transition:color .3s;text-decoration:none}
+.nav-links a:hover{color:var(--gold)}
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:60px 40px;text-align:center;overflow:hidden}
+.hero::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(201,169,110,.06) 0%,transparent 70%);border-radius:50%;z-index:0}
+.hero-line{position:absolute;top:50%;transform:translateY(-50%);width:1px;height:180px;background:linear-gradient(to bottom,transparent,var(--gold-dim),transparent);opacity:.4;z-index:1}
+.hero-line:first-of-type{left:80px}.hero-line:last-of-type{right:80px}
+.hero-content{position:relative;z-index:2;max-width:680px}
+.hero-label{font-family:"Cormorant Garamond",serif;font-size:.82rem;letter-spacing:.35em;color:var(--gold);text-transform:uppercase;margin-bottom:18px;font-style:italic;animation:fadeIn 1.2s var(--ease) .2s both}
+.hero-title{font-size:clamp(3rem,8vw,6.5rem);color:var(--cream);letter-spacing:.18em;line-height:1.1;margin-bottom:14px;font-weight:200;animation:fadeIn 1.2s var(--ease) .4s both}
+.hero-title em{color:var(--gold);font-style:normal}
+.hero-sub{font-size:.9rem;color:var(--gold);letter-spacing:.35em;margin-bottom:28px;text-transform:uppercase;font-weight:300;animation:fadeIn 1.2s var(--ease) .6s both}
+.hero-divider{width:36px;height:1px;background:var(--gold);margin:0 auto 28px;animation:fadeIn 1.2s var(--ease) .8s both}
+.hero-desc{font-size:.95rem;color:var(--text-dim);letter-spacing:.1em;line-height:2.1;max-width:480px;margin:0 auto 40px;animation:fadeIn 1.2s var(--ease) 1s both}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(201,169,110,.25);padding:8px 20px;border-radius:100px;font-size:.72rem;letter-spacing:.18em;color:var(--cream);animation:fadeIn 1.2s var(--ease) 1.2s both}
+.hero-badge::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--gold)}
+.hero-scroll{position:absolute;bottom:36px;left:50%;transform:translateX(-50%);animation:fadeIn 1.5s var(--ease) 1.4s both}
+.hero-scroll span{display:block;width:1px;height:36px;background:linear-gradient(to bottom,var(--gold-dim),transparent);margin:0 auto 8px}
+.hero-scroll p{font-size:.62rem;letter-spacing:.3em;color:var(--muted);text-transform:uppercase}
+.section{padding:100px 80px;position:relative;z-index:1}
+.section-tag{font-family:"Cormorant Garamond",serif;font-size:.78rem;letter-spacing:.3em;color:var(--gold);text-transform:uppercase;margin-bottom:8px;font-style:italic}
+.section-heading{font-size:2.2rem;color:var(--cream);letter-spacing:.1em;margin-bottom:48px;font-weight:300}
+.section-heading em{color:var(--gold);font-style:normal}
+.products{background:var(--black-soft)}
+.product-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)}
+.product-item{background:var(--black-warm);padding:44px 28px;text-align:center;transition:background .4s}
+.product-item:hover{background:#1a1a28}
+.product-icon{font-size:2.8rem;margin-bottom:18px}
+.product-name{font-size:1.05rem;color:var(--cream);letter-spacing:.08em;margin-bottom:6px;font-weight:500}
+.product-meta{font-size:.7rem;color:var(--gold);letter-spacing:.15em;margin-bottom:14px;text-transform:uppercase}
+.product-desc{font-size:.76rem;color:var(--text-dim);line-height:1.9;margin-bottom:18px;padding:0 4px}
+.product-price{font-size:1.2rem;color:var(--gold-light);letter-spacing:.05em;font-weight:600}
+.story{background:var(--black)}
+.story-grid{display:grid;grid-template-columns:1fr 1.5fr;gap:80px;align-items:center}
+.story-visual{aspect-ratio:3/4;background:linear-gradient(135deg,rgba(201,169,110,.07),transparent 60%,rgba(201,169,110,.03));border:1px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative}
+.story-visual-inner{font-size:2.6rem;color:rgba(201,169,110,.1);letter-spacing:.3em;line-height:1.5;font-weight:700;text-align:center;white-space:pre}
+.story-text h3{font-size:1.5rem;color:var(--cream);letter-spacing:.08em;margin-bottom:18px;font-weight:400;line-height:1.4}
+.story-text p{font-size:.85rem;color:var(--text-dim);line-height:2.2;margin-bottom:18px}
+.story-stat{display:inline-flex;align-items:baseline;gap:10px;padding:14px 0;border-top:1px solid var(--border);margin-top:14px}
+.story-stat-num{font-size:2.4rem;color:var(--gold);font-weight:200;line-height:1}
+.story-stat-label{font-size:.72rem;color:var(--text-dim);letter-spacing:.15em;text-transform:uppercase}
+.craft{background:var(--black-soft);text-align:center}
+.craft-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;max-width:900px;margin:0 auto}
+.craft-item{padding:40px 28px;border:1px solid var(--border);transition:border-color .4s}
+.craft-item:hover{border-color:var(--gold-dim)}
+.craft-icon{font-size:2.4rem;margin-bottom:18px}
+.craft-title{font-size:1rem;color:var(--cream);letter-spacing:.1em;margin-bottom:10px;font-weight:500}
+.craft-desc{font-size:.78rem;color:var(--text-dim);line-height:2}
+.contact{background:linear-gradient(180deg,var(--black-warm),var(--black));text-align:center}
+.contact-heading{font-size:2rem;color:var(--cream);letter-spacing:.12em;margin-bottom:8px;font-weight:300}
+.contact-sub{font-size:.8rem;color:var(--gold);letter-spacing:.25em;margin-bottom:36px;text-transform:uppercase}
+.contact-btn{display:inline-block;border:1px solid var(--gold);color:var(--gold);padding:15px 44px;font-size:.78rem;letter-spacing:.2em;text-transform:uppercase;transition:all .4s;text-decoration:none;cursor:pointer}
+.contact-btn:hover{background:var(--gold);color:var(--black)}
+.contact-info{margin-top:28px;font-size:.78rem;color:var(--text-dim);letter-spacing:.1em}
+@keyframes fadeIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.reveal{opacity:0;transform:translateY(36px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+@media(max-width:1024px){.product-grid{grid-template-columns:repeat(2,1fr)}.story-grid{grid-template-columns:1fr;gap:40px}.section{padding:60px 30px}.hero-title{font-size:3.5rem}.nav-links{display:none}}
+@media(max-width:640px){.product-grid{grid-template-columns:1fr}.hero-title{font-size:2.5rem}.hero-line{display:none}.nav-top{padding:14px 20px}.section{padding:48px 20px}.section-heading{font-size:1.6rem}.craft-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav class="nav-top" id="nav">
+  <div class="nav-logo">天地鲟鳇</div>
+  <ul class="nav-links">
+    <li><a href="#products">产品</a></li>
+    <li><a href="#story">故事</a></li>
+    <li><a href="#craft">匠心</a></li>
+    <li><a href="#contact">联系</a></li>
+  </ul>
+</nav>
+
+<section class="hero">
+  <div class="hero-line"></div><div class="hero-line"></div>
+  <div class="hero-content">
+    <p class="hero-label">Est. 2024 · 黑龙江抚远</p>
+    <h1 class="hero-title">天地<em>鲟鳇</em></h1>
+    <p class="hero-sub">TIANDI XUNHUANG</p>
+    <div class="hero-divider"></div>
+    <p class="hero-desc">传承千年鱼文化 · 品味自然珍馐</p>
+    <div class="hero-badge">省级非物质文化遗产</div>
+  </div>
+  <div class="hero-scroll"><span></span><p>Scroll</p></div>
+</section>
+
+<section class="section products" id="products">
+  <p class="section-tag">Treasures of Caviar</p>
+  <h2 class="section-heading">珍品 <em>鱼子酱</em></h2>
+  <div class="product-grid">
+    <div class="product-item reveal"><div class="product-icon">😋</div><div class="product-name">经典盐渍鱼子酱</div><div class="product-meta">100g / 罐</div><p class="product-desc">传承古法盐渍工艺，颗粒饱满圆润，色泽金褐透亮，口感醇厚绵密，回味悠长。</p><div class="product-price">¥1,680</div></div>
+    <div class="product-item reveal"><div class="product-icon">✨</div><div class="product-name">御品低盐鱼子酱</div><div class="product-meta">50g / 罐</div><p class="product-desc">精选低盐工艺，保留鱼卵天然风味，颗粒弹性十足，入口即化，品鉴级首选。</p><div class="product-price">¥2,980</div></div>
+    <div class="product-item reveal"><div class="product-icon">💎</div><div class="product-name">珍藏限量版</div><div class="product-meta">30g / 罐</div><p class="product-desc">限量稀缺珍品，粒径饱满，色泽如琥珀晶莹，非遗技艺匠心制作。</p><div class="product-price">¥3,680</div></div>
+    <div class="product-item reveal"><div class="product-icon">🎁</div><div class="product-name">尊享礼盒套装</div><div class="product-meta">200g / 盒</div><p class="product-desc">高端礼赠首选，精致木质礼盒，配品牌故事卡，彰显尊贵品味。</p><div class="product-price">¥4,980</div></div>
+  </div>
+</section>
+
+<section class="section story" id="story">
+  <div class="story-grid">
+    <div class="story-visual reveal"><div class="story-visual-inner">天地
+鲟鳇</div></div>
+    <div class="story-text reveal">
+      <p class="section-tag">A Thousand Years</p>
+      <h3>千年鲟缘，鳇香传世</h3>
+      <p>约7000年前，赫哲族祖先于黑龙江流域捕食鲟鳇鱼。先秦至唐代，"王鲔"被封为皇室贡品。清代更成为皇家专属贡品，唯有紫禁城方能品尝此等珍馐。</p>
+      <p>2019年，鱼子酱制作技艺入选省级非物质文化遗产名录。天地鲟鳇以非遗技艺匠心制作，守护千年文化传承。</p>
+      <div class="story-stat"><span class="story-stat-num">2002</span><span class="story-stat-label">中国鲟鳇鱼之乡</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section craft" id="craft">
+  <p class="section-tag">Ancient Technique</p>
+  <h2 class="section-heading" style="text-align:center">非遗 <em>匠心</em></h2>
+  <div class="craft-grid">
+    <div class="craft-item reveal"><div class="craft-icon">🐟</div><div class="craft-title">活鱼取卵</div><p class="craft-desc">精选成熟活鱼，手工轻缓取卵，保障鱼卵完整鲜活，最大限度保留天然风味。</p></div>
+    <div class="craft-item reveal"><div class="craft-icon">❄️</div><div class="craft-title">冰水洗卵</div><p class="craft-desc">低温冰水清洗，去除杂质与膜质，保留每一颗完整颗粒的纯粹口感。</p></div>
+    <div class="craft-item reveal"><div class="craft-icon">⏱️</div><div class="craft-title">十五分钟锁鲜</div><p class="craft-desc">全程不过十五分钟，极速锁住鲜味，是非遗核心技艺的精髓所在。</p></div>
+  </div>
+</section>
+
+<section class="section contact" id="contact">
+  <p class="section-tag">Get in Touch</p>
+  <h2 class="contact-heading">珍味相待，欢迎垂询</h2>
+  <p class="contact-sub">Exquisite Flavors Await</p>
+  <a href="https://www.tdxh01.xyz/" class="contact-btn">进入官网</a>
+  <p class="contact-info">天地鲟鳇 · 黑龙江抚远 · info@tiandixunhuang.com</p>
+</section>
+
+<script>
+const obs=new IntersectionObserver((e)=>{e.forEach(x=>{if(x.isIntersecting)x.target.classList.add("visible")})},{threshold:0.12})
+document.querySelectorAll(".reveal").forEach(el=>obs.observe(el))
+addEventListener("scroll",()=>{document.getElementById("nav").classList.toggle("scrolled",scrollY>40)})
+</script>
+</body>
+</html>
