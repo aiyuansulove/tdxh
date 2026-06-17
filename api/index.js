@@ -154,7 +154,7 @@ module.exports = async (req, res) => {
     }
 
     // Generic CRUD helper
-    const apiMatch = pathname.match(/^\/trace\/api\/(\w+)(?:\/(\d+))?(?:\/(\w+))?(?:\/(\d+))?$/);
+    const apiMatch = pathname.match(/^\/trace\/api\/([\w-]+)(?:\/(\d+))?(?:\/([\w-]+))?(?:\/(\d+))?$/);
     if (apiMatch) {
       const user = auth(req.headers.authorization);
       if (!user && apiMatch[1] !== 'admin') return json(res, { error: '未登录' }, 401);
