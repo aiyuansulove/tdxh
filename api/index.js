@@ -113,7 +113,7 @@ module.exports = async (req, res) => {
     // ==================== API Routes ====================
 
     // Debug
-    if (pathname === '/trace/api/debug/login' && method === 'POST') {
+    if (pathname === '/trace/api/debug/login') {
       const body = await parseBody(req);
       const { data } = await supabase.from('admins').select('*').eq('username', body.username);
       if (!data?.length) return json(res, { error: '用户不存在', received_username: body.username });
