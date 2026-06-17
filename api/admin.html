@@ -336,12 +336,24 @@ async function showNodeForm(batchId, nodeId) {
 async function uploadFiles(files) {
   for (let i = 0; i < files.length; i++) {
     let f = files[i];
-    let fd = new FormData();
-    fd.append('file', f);
     try {
-      let res = await fetch('/trace/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:fd });
-      let data = await res.json();
-      if (data.ok) { nodeMedia.push({ media_type: f.type.startsWith('video/')?'video':'image', url:data.url }); renderMediaList(); } else { alert('上传失败: '+JSON.stringify(data)); }
+      let reader = new FileReader();
+      let b64 = await new Promise(function(r) {
+        reader.onload = function() { r(reader.result.split(',')[1]); };
+        reader.readAsDataURL(f);
+      });
+      let res = await fetch('/trace/api/upload', {
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body: JSON.stringify({filename: f.name, data: b64})
+      });
+      let result = await res.json();
+      if (result.ok) {
+        nodeMedia.push({ media_type: f.type.startsWith('video/')?'video':'image', url:result.url });
+        renderMediaList();
+      } else {
+        alert('上传失败: '+JSON.stringify(result));
+      }
     } catch(e) { alert('上传失败: '+e.message); }
   }
 }
