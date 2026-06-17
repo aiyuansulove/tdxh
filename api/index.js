@@ -103,7 +103,34 @@ module.exports = async (req, res) => {
         <div class="box"><input type="text" name="sn" placeholder="输入产品溯源码" required><button type="submit">查 询</button></div>
       </form>
       <div class="footer">&copy; 2025 天地鲟鳇</div>
-    </body></html>`);
+    <div class="lb" id="lb" onclick="closeLB(event)">
+    <button class="lb-close" onclick="closeLB()">x</button>
+    <button class="lb-nav lb-prev" id="lbP" onclick="event.stopPropagation();navLB(-1)">&#8249;</button>
+    <img id="lbImg" src="" alt="">
+    <button class="lb-nav lb-next" id="lbN" onclick="event.stopPropagation();navLB(1)">&#8250;</button>
+    <div class="lb-ct" id="lbC"></div>
+  </div>
+  <script>
+  var lbImgs=[],lbCur=0;
+  function openLB(i){
+    lbImgs=[];document.querySelectorAll('.tl-item img').forEach(function(x){lbImgs.push(x.src);});
+    if(!lbImgs.length)return;lbCur=Math.min(i,lbImgs.length-1);
+    document.getElementById('lbImg').src=lbImgs[lbCur];
+    document.getElementById('lbC').textContent=(lbCur+1)+'/'+lbImgs.length;
+    var s=lbImgs.length>1?'flex':'none';
+    document.getElementById('lbP').style.display=s;document.getElementById('lbN').style.display=s;
+    document.getElementById('lb').classList.add('show');document.body.style.overflow='hidden';
+  }
+  function closeLB(e){if(e&&e.target!==e.currentTarget)return;
+    document.getElementById('lb').classList.remove('show');document.body.style.overflow='';}
+  document.addEventListener('keydown',function(e){
+    if(!document.getElementById('lb').classList.contains('show'))return;
+    if(e.key==='Escape')closeLB();if(e.key==='ArrowLeft')navLB(-1);if(e.key==='ArrowRight')navLB(1);
+  });
+  function navLB(d){lbCur=(lbCur+d+lbImgs.length)%lbImgs.length;
+    document.getElementById('lbImg').src=lbImgs[lbCur];
+    document.getElementById('lbC').textContent=(lbCur+1)+'/'+lbImgs.length;}
+  </script></body></html>`);
     }
 
     // SN code query
