@@ -97,13 +97,15 @@
                     {{ end }}
                 </div>
             </div>
-            <div class="origin-stats-row">
-                {{ range $origin.stats }}
-                <div class="stat-item">
-                    <span class="stat-item-num">{{ .num }}</span>
-                    <span class="stat-item-label">{{ .label }}</span>
+            <div class="origin-stats-box">
+                <div class="origin-stats-row">
+                    {{ range $origin.stats }}
+                    <div class="stat-item">
+                        <span class="stat-item-num">{{ .num }}</span>
+                        <span class="stat-item-label">{{ .label }}</span>
+                    </div>
+                    {{ end }}
                 </div>
-                {{ end }}
             </div>
             <div class="trace-compact">
                 <div class="trace-box">
