@@ -1,89 +1,369 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>天地鲟鳇 - 后台管理</title>
-  <link rel="stylesheet" href="/admin/admin.css">
-  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天地鲟鳇 · 溯源管理</title>
+<style>
+:root{--gold:#C9A96E;--gold-dark:#a8893e;--bg:#0f0f1a;--bg2:#1a1a38;--text:#e0e0ec;--text2:#8888aa;--border:#282850}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--text);overflow:hidden;height:100vh}
+a{color:var(--gold);text-decoration:none}
+.login-screen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a0a18,#1a1a3e);z-index:1000}
+.login-card{background:var(--bg2);border-radius:12px;padding:36px;width:380px;max-width:90vw;border:1px solid var(--border)}
+.login-card h1{text-align:center;font-size:1.2em;margin-bottom:4px;color:var(--gold)}
+.login-card p{text-align:center;color:var(--text2);font-size:.8em;margin-bottom:24px}
+.login-card input{width:100%;padding:10px 14px;margin-bottom:12px;background:#242450;border:1px solid var(--border);border-radius:5px;color:var(--text);font-size:.9em;outline:none}
+.login-card input:focus{border-color:var(--gold)}
+.login-card button{width:100%;padding:10px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));border:none;border-radius:5px;color:#fff;font-size:1em;cursor:pointer}
+.login-card .error{color:#e74c3c;font-size:.8em;min-height:1.2em;margin-top:4px}
+.app{display:none;height:100vh;overflow:hidden}
+.sidebar{width:200px;min-width:200px;background:#111128;border-right:1px solid var(--border);display:flex;flex-direction:column}
+.sidebar h2{padding:16px;font-size:.95em;color:var(--gold);border-bottom:1px solid var(--border)}
+.sidebar nav{flex:1;overflow-y:auto;padding:8px}
+.sidebar nav button{display:block;width:100%;padding:8px 12px;background:none;border:none;color:var(--text2);cursor:pointer;text-align:left;font-size:.85em;border-radius:4px;margin-bottom:2px;font-family:inherit}
+.sidebar nav button:hover{background:var(--bg2);color:var(--text)}
+.sidebar nav button.active{background:rgba(201,169,110,.12);color:var(--gold)}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 24px;border-bottom:1px solid var(--border);background:#111128}
+.topbar h3{font-size:1em}
+.topbar button{background:none;border:none;color:var(--text2);cursor:pointer;font-size:.8em;font-family:inherit}
+.topbar button:hover{color:var(--gold)}
+.content{flex:1;overflow-y:auto;padding:24px}
+table{width:100%;border-collapse:collapse;font-size:.82em}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid var(--border)}
+th{color:var(--gold);font-weight:400;letter-spacing:.08em}
+td{color:var(--text2)}
+tr:hover td{background:rgba(201,169,110,.04)}
+.form-row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.form-row input,.form-row select,.form-row textarea{padding:8px 12px;background:#242450;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.85em;outline:none;flex:1;min-width:140px;font-family:inherit}
+.form-row input:focus,.form-row select:focus{border-color:var(--gold)}
+.btn{padding:8px 20px;background:linear-gradient(135deg,var(--gold),var(--gold-dark));border:none;border-radius:4px;color:#fff;font-size:.82em;cursor:pointer;font-family:inherit}
+.btn-sm{padding:4px 12px;font-size:.75em}
+.btn-danger{background:#e74c3c}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text2)}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;text-align:center}
+.stat-card .num{font-size:1.6em;color:var(--gold);font-weight:300}
+.stat-card .label{font-size:.72em;color:var(--text2);margin-top:4px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100}
+.modal.show{display:flex}
+.modal-inner{background:var(--bg2);border-radius:12px;padding:28px;width:700px;max-width:95vw;max-height:85vh;overflow-y:auto;border:1px solid var(--border)}
+.modal-inner h3{margin-bottom:16px;color:var(--gold)}
+.upload-zone{border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;cursor:pointer;transition:.3s;margin-bottom:12px}
+.upload-zone:hover{border-color:var(--gold);background:rgba(201,169,110,.04)}
+.upload-zone.dragover{border-color:var(--gold);background:rgba(201,169,110,.08)}
+.media-list{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.media-item{position:relative;width:100px;height:80px;border-radius:4px;overflow:hidden;border:1px solid var(--border)}
+.media-item img,.media-item video{width:100%;height:100%;object-fit:cover}
+.media-item .del-media{position:absolute;top:2px;right:2px;background:#e74c3c;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;line-height:20px;text-align:center}
+.editor-tb{display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap}
+.editor-tb button{padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--text2);border-radius:3px;cursor:pointer;font-size:.82em;font-family:inherit}
+.editor-tb button:hover{border-color:var(--gold);color:var(--gold)}
+.editor-box{min-height:180px;padding:12px;background:#242450;border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:.88rem;line-height:1.8;outline:none}
+.editor-box:focus{border-color:var(--gold)}
+@media(max-width:700px){.sidebar{width:50px;min-width:50px}.sidebar h2{display:none}.sidebar nav button span{display:none}.stats{grid-template-columns:repeat(2,1fr)}.modal-inner{width:100%;padding:16px}}
+</style>
 </head>
 <body>
-  <!-- Login Screen -->
-  <div id="loginScreen" class="login-screen">
-    <div class="login-card">
-      <div class="login-logo"><img src="/images/天地鲟鳇logo.jpg" alt="天地鲟鳇"></div>
-      <h1 class="login-title">内容管理系统</h1>
-      <p class="login-subtitle">天地鲟鳇 · 后台管理</p>
-      <div class="login-form">
-        <label class="login-label">GitHub 个人访问令牌</label>
-        <input type="password" id="tokenInput" class="login-input" placeholder="输入你的 GitHub Personal Access Token">
-        <p class="login-hint">需要 <strong>repo</strong> 权限。<a href="https://github.com/settings/tokens" target="_blank" class="login-link">去生成 →</a></p>
-        <button id="loginBtn" class="login-btn">进入后台</button>
-        <p id="loginError" class="login-error"></p>
-      </div>
-    </div>
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <h1>天地鲟鳇</h1>
+    <p>溯源管理系统</p>
+    <input type="text" id="loginUser" placeholder="用户名" value="admin">
+    <input type="password" id="loginPass" placeholder="密码" value="admin123">
+    <div class="error" id="loginError"></div>
+    <button onclick="login()">登 录</button>
   </div>
-
-  <!-- Main App -->
-  <div id="app" class="app" style="display:none">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <img src="/images/天地鲟鳇logo.jpg" alt="Logo" class="sidebar-logo">
-        <span class="sidebar-title">天地鲟鳇</span>
-      </div>
-      <nav class="sidebar-nav" id="sidebarNav">
-        <!-- 由 JS 动态渲染 -->
-      </nav>
-      <div class="sidebar-footer">
-        <span id="sidebarStatus" class="sidebar-status">未连接</span>
-        <button id="logoutBtn" class="sidebar-logout">退出</button>
-      </div>
-    </aside>
-
-    <!-- Editor Panel -->
-    <div class="editor-layout" id="editorLayout">
-      <!-- 未选择时的欢迎页 -->
-      <div id="welcomeScreen" class="welcome-screen">
-        <div class="welcome-content">
-          <img src="/images/天地鲟鳇logo.jpg" alt="天地鲟鳇" class="welcome-logo">
-          <h2>欢迎使用内容管理系统</h2>
-          <p>请从左侧选择要编辑的板块</p>
-        </div>
-      </div>
-
-      <!-- 编辑器 -->
-      <div id="editorPanel" class="editor-container" style="display:none">
-        <!-- 顶部：标题和保存按钮 -->
-        <div class="editor-topbar">
-          <div class="editor-topbar-info">
-            <h3 id="editorTitle">编辑板块</h3>
-            <span id="editorPath" class="editor-path"></span>
-          </div>
-          <div class="editor-topbar-actions">
-            <span id="editorStatus" class="editor-status"></span>
-            <button id="editorSaveBtn" class="btn btn-primary">💾 保存</button>
-          </div>
-        </div>
-
-        <!-- 表单区域 -->
-        <div id="sectionForm" class="editor-form"></div>
-
-        <!-- 底部：提交信息 -->
-        <div class="editor-bottom">
-          <input type="text" id="commitMsg" class="commit-input" placeholder="提交说明（如：更新首页Hero）">
-        </div>
-      </div>
-    </div>
-
-    <!-- Image upload input -->
-    <input type="file" id="imageFileInput" accept="image/*" style="display:none">
-
-    <!-- Toast -->
-    <div id="toast" class="toast"></div>
+</div>
+<div class="app" id="app">
+  <div class="sidebar">
+    <h2>溯源管理</h2>
+    <nav>
+      <button class="active" onclick="showPage('dashboard')">📊 控制台</button>
+      <button onclick="showPage('products')">📦 产品管理</button>
+      <button onclick="showPage('batches')">🏷️ 批次管理</button>
+      <button onclick="showPage('sncodes')">🔑 SN码管理</button>
+      <button onclick="showPage('nodes')">📋 溯源内容</button>
+    </nav>
   </div>
+  <div class="main">
+    <div class="topbar">
+      <h3 id="pageTitle">控制台</h3>
+      <button onclick="logout()">退出</button>
+    </div>
+    <div class="content" id="pageContent"></div>
+  </div>
+</div>
+<script>
+let token = localStorage.getItem('token') || '';
 
-  <script src="/admin/admin.js"></script>
-  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js" defer></script>
+async function api(url, opts) {
+  opts = opts || {};
+  var headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  try {
+    var res = await fetch('/trace/api' + url, { ...opts, headers: { ...headers, ...(opts.headers||{}) } });
+    if (res.status === 401) { logout(); return null; }
+    return res.json();
+  } catch(e) { alert('网络错误: '+e.message); return null; }
+}
+
+async function login() {
+  var u = document.getElementById('loginUser').value;
+  var p = document.getElementById('loginPass').value;
+  var res = await fetch('/trace/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: u, password: p }) });
+  var data = await res.json();
+  if (data.error) { document.getElementById('loginError').textContent = data.error; return; }
+  token = data.token; localStorage.setItem('token', token);
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  showPage('dashboard');
+}
+
+function logout() { token = ''; localStorage.removeItem('token'); document.getElementById('loginScreen').style.display = 'flex'; document.getElementById('app').style.display = 'none'; }
+
+(async function() {
+  if (token) {
+    var me = await api('/admin/me');
+    if (me && me.ok) { document.getElementById('loginScreen').style.display = 'none'; document.getElementById('app').style.display = 'flex'; showPage('dashboard'); }
+  }
+})();
+
+function showPage(name) {
+  var titles = {dashboard:'控制台',products:'产品管理',batches:'批次管理',sncodes:'SN码管理',nodes:'溯源内容管理'};
+  var keywords = {dashboard:'控制台',products:'产品',batches:'批次',sncodes:'SN码',nodes:'溯源'};
+  document.querySelectorAll('.sidebar nav button').forEach(function(b){ b.classList.remove('active'); });
+  document.querySelectorAll('.sidebar nav button').forEach(function(b){ if(b.textContent.includes(keywords[name]||'')) b.classList.add('active'); });
+  document.getElementById('pageTitle').textContent = titles[name]||'';
+  window['render'+name.charAt(0).toUpperCase()+name.slice(1)]();
+}
+
+// Dashboard
+async function renderDashboard() {
+  var data = await api('/stats');
+  if (!data) return;
+  document.getElementById('pageContent').innerHTML = '<div class="stats"><div class="stat-card"><div class="num">'+(data.totalProducts||0)+'</div><div class="label">产品</div></div><div class="stat-card"><div class="num">'+(data.totalBatches||0)+'</div><div class="label">批次</div></div><div class="stat-card"><div class="num">'+(data.totalSN||0)+'</div><div class="label">SN码</div></div><div class="stat-card"><div class="num">'+(data.totalQuery||0)+'</div><div class="label">总查询</div></div><div class="stat-card"><div class="num">'+(data.todayQuery||0)+'</div><div class="label">今日</div></div></div>';
+}
+
+// Products
+async function renderProducts() {
+  var items = await api('/products') || [];
+  var h = '<button class="btn" onclick="showProductForm()">+ 新建产品</button><table><tr><th>ID</th><th>名称</th><th>分类</th><th>规格</th><th>售价</th><th>操作</th></tr>';
+  items.forEach(function(p){ h+='<tr><td>'+p.id+'</td><td>'+p.name+'</td><td>'+(p.category||'')+'</td><td>'+(p.spec||'')+'</td><td>'+(p.price||'')+'</td><td><button class="btn btn-sm" onclick="showProductForm('+p.id+')">编辑</button> <button class="btn btn-sm btn-danger" onclick="delItem(\'products\','+p.id+')">删除</button></td></tr>'; });
+  document.getElementById('pageContent').innerHTML = h+'</table>';
+}
+
+var editingId = null;
+function showProductForm(id) {
+  editingId = id || null;
+  if (id) { api('/products').then(function(items){ var p = items.find(function(x){return x.id==id;}); if(p) showModal('products',p); }); }
+  else showModal('products',{name:'',category:'',spec:'',price:'',description:''});
+}
+
+function showModal(type, data) {
+  if (type === 'products') {
+    var isEdit = !!editingId;
+    document.getElementById('pageContent').innerHTML += '<div class="modal show" id="m"><div class="modal-inner"><h3>'+(isEdit?'编辑产品':'新建产品')+'</h3><div class="form-row"><input id="f1" placeholder="产品名称" value="'+(data.name||'')+'"></div><div class="form-row"><input id="f2" placeholder="分类" value="'+(data.category||'')+'"><input id="f3" placeholder="规格" value="'+(data.spec||'')+'"><input id="f4" placeholder="售价" value="'+(data.price||'')+'"></div><div class="form-row"><textarea id="f5" placeholder="描述" style="flex:1;min-height:60px">'+(data.description||'')+'</textarea></div><div class="form-row"><button class="btn" onclick="saveProduct()">保存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div></div></div>';
+  }
+}
+
+async function saveProduct() {
+  var data = { name: document.getElementById('f1').value, category: document.getElementById('f2').value, spec: document.getElementById('f3').value, price: document.getElementById('f4').value, description: document.getElementById('f5').value };
+  if (editingId) await api('/products/'+editingId, { method:'PUT', body:JSON.stringify(data) });
+  else await api('/products', { method:'POST', body:JSON.stringify(data) });
+  closeModal(); renderProducts();
+}
+
+async function delItem(type, id) {
+  if (!confirm('确认删除？')) return;
+  await api('/'+type+'/'+id, { method:'DELETE' });
+  renderProducts();
+}
+
+// Batches
+async function renderBatches() {
+  var items = await api('/batches') || [];
+  var products = await api('/products') || [];
+  var h = '<button class="btn" onclick="showBatchForm()">+ 新建批次</button><table><tr><th>ID</th><th>批次号</th><th>产品</th><th>来源</th><th>日期</th><th>状态</th><th>操作</th></tr>';
+  items.forEach(function(b){ h+='<tr><td>'+b.id+'</td><td>'+b.batch_no+'</td><td>'+(b.product_name||'')+'</td><td>'+(b.fry_source||'')+'</td><td>'+(b.fry_date||'')+'</td><td>'+(b.status==1?'已出库':'待出库')+'</td><td><button class="btn btn-sm" onclick="showBatchForm('+b.id+')">编辑</button> <button class="btn btn-sm btn-danger" onclick="delBatch('+b.id+')">删除</button></td></tr>'; });
+  document.getElementById('pageContent').innerHTML = h+'</table>';
+}
+
+var editingBatchId = null;
+async function showBatchForm(id) {
+  editingBatchId = id || null;
+  var products = await api('/products') || [];
+  var batch = { product_id:'', batch_no:'', quantity:0, fry_source:'', fry_date:'', harvest_date:'', process_date:'' };
+  if (id) { var items = await api('/batches') || []; var found = items.find(function(b){return b.id==id;}); if(found) batch = found; }
+  var opts = products.map(function(p){ return '<option value="'+p.id+'" '+(batch.product_id==p.id?'selected':'')+'>'+p.name+'</option>'; }).join('');
+  document.getElementById('pageContent').innerHTML += '<div class="modal show" id="m"><div class="modal-inner"><h3>'+(editingBatchId?'编辑批次':'新建批次')+'</h3><div class="form-row"><select id="bf1">'+opts+'</select><input id="bf2" placeholder="批次号" value="'+(batch.batch_no||'')+'"><input id="bf3" placeholder="数量" type="number" value="'+(batch.quantity||0)+'"></div><div class="form-row"><input id="bf4" placeholder="鱼苗来源" value="'+(batch.fry_source||'')+'"><input id="bf5" placeholder="投放日期" type="date" value="'+(batch.fry_date||'')+'"></div><div class="form-row"><input id="bf6" placeholder="捕捞日期" type="date" value="'+(batch.harvest_date||'')+'"><input id="bf7" placeholder="加工日期" type="date" value="'+(batch.process_date||'')+'"></div><div class="form-row"><button class="btn" onclick="saveBatch()">保存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div></div></div>';
+}
+
+async function saveBatch() {
+  var data = { product_id: document.getElementById('bf1').value, batch_no: document.getElementById('bf2').value, quantity: document.getElementById('bf3').value, fry_source: document.getElementById('bf4').value, fry_date: document.getElementById('bf5').value, harvest_date: document.getElementById('bf6').value, process_date: document.getElementById('bf7').value };
+  if (editingBatchId) await api('/batches/'+editingBatchId, { method:'PUT', body:JSON.stringify(data) });
+  else await api('/batches', { method:'POST', body:JSON.stringify(data) });
+  closeModal(); renderBatches();
+}
+
+async function delBatch(id) { if(!confirm('确认删除？')) return; await api('/batches/'+id, {method:'DELETE'}); renderBatches(); }
+
+// SN Codes
+async function renderSncodes() {
+  var items = await api('/sncodes') || [];
+  var products = await api('/products') || [];
+  var batches = await api('/batches') || [];
+  var po = products.map(function(p){return '<option value="'+p.id+'">'+p.name+'</option>';}).join('');
+  var bo = batches.map(function(b){return '<option value="'+b.id+'">'+b.batch_no+'</option>';}).join('');
+  var h = '<div style="margin-bottom:12px"><select id="gp">'+po+'</select> <select id="gb">'+bo+'</select> <input id="gc" type="number" value="10" style="width:70px;padding:8px;background:#242450;border:1px solid var(--border);border-radius:4px;color:var(--text)"> <button class="btn" onclick="genSN()">生成</button></div><table><tr><th>SN码</th><th>产品</th><th>批次</th><th>状态</th><th>查询</th><th>操作</th></tr>';
+  items.forEach(function(s){ h+='<tr><td style="font-family:monospace;color:var(--gold)">'+s.sn+'</td><td>'+(s.product_name||'')+'</td><td>'+(s.batch_no||'')+'</td><td>'+s.status+'</td><td>'+(s.query_count||0)+'</td><td><button class="btn btn-sm" onclick="toggleSN('+s.id+',\''+s.status+'\')">'+(s.status==='active'?'停用':'启用')+'</button></td></tr>'; });
+  document.getElementById('pageContent').innerHTML = h+'</table>';
+}
+
+async function genSN() {
+  var r = await api('/sncodes/generate', { method:'POST', body:JSON.stringify({ product_id:parseInt(document.getElementById('gp').value), batch_id:parseInt(document.getElementById('gb').value), count:parseInt(document.getElementById('gc').value) }) });
+  if(r) alert('生成了 '+r.count+' 个SN码'); renderSncodes();
+}
+
+async function toggleSN(id, st) { await api('/sncodes/'+id+'/status', {method:'PUT', body:JSON.stringify({status:st==='active'?'revoked':'active'})}); renderSncodes(); }
+
+// Trace Nodes
+var editingNodeId = null;
+var nodeMedia = [];
+
+// Delegated delete handler for media items
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('.del-media');
+  if (!btn) return;
+  e.stopPropagation();
+  var items = document.querySelectorAll('#ml .media-item');
+  for (var di = 0; di < items.length; di++) {
+    if (items[di].contains(btn)) {
+      nodeMedia.splice(di, 1);
+      renderMediaList();
+      break;
+    }
+  }
+});
+
+async function renderNodes() {
+  var batches = await api('/batches') || [];
+  var h = '<select id="nb" style="padding:8px;background:#242450;border:1px solid var(--border);border-radius:4px;color:var(--text)" onchange="loadNodes()"><option value="">选择批次</option>';
+  batches.forEach(function(b){ h+='<option value="'+b.id+'">'+b.batch_no+' - '+(b.product_name||'')+'</option>'; });
+  document.getElementById('pageContent').innerHTML = h+'</select><div id="nl"></div>';
+}
+
+async function loadNodes() {
+  var bid = document.getElementById('nb').value;
+  if (!bid) { document.getElementById('nl').innerHTML = ''; return; }
+  var nodes = await api('/nodes/'+bid) || [];
+  var types = await api('/node-types') || [];
+  var h = '<button class="btn" onclick="showNodeForm('+bid+')">+ 添加溯源节点</button><br><br>';
+  if (!nodes.length) h += '<p style="color:var(--text2)">暂无内容</p>';
+  nodes.forEach(function(n){
+    h += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center"><strong style="color:var(--gold)">'+(n.type_icon||'')+' '+(n.title||n.type_name)+'</strong><div><button class="btn btn-sm" onclick="showNodeForm('+bid+','+n.id+')">编辑</button> <button class="btn btn-sm btn-danger" onclick="delNode('+n.id+')">删除</button></div></div>';
+    if (n.content) h += '<div style="color:var(--text2);font-size:.82em;margin-top:8px">'+n.content.slice(0,200)+'</div>';
+    if (n.media && n.media.length) {
+      h += '<div class="media-list">';
+      n.media.forEach(function(m){ h += '<div class="media-item">'+(m.media_type==='video'?'<video src="'+m.url+'"></video>':'<img src="'+m.url+'">')+'</div>'; });
+      h += '</div>';
+    }
+    h += '</div>';
+  });
+  document.getElementById('nl').innerHTML = h;
+}
+
+async function showNodeForm(batchId, nodeId) {
+  editingNodeId = nodeId || null;
+  nodeMedia = [];
+  var types = await api('/node-types') || [];
+  var node = { node_code:'', title:'', content:'', media:[] };
+  if (nodeId) { var nodes = await api('/nodes/'+batchId) || []; var f = nodes.find(function(n){return n.id==nodeId;}); if(f){node=f;nodeMedia=f.media||[];} }
+  var typeOpts = types.map(function(t){ return '<option value="'+t.code+'" '+(node.node_code==t.code?'selected':'')+'>'+(t.icon||'')+' '+t.name+'</option>'; }).join('');
+  var mediaHtml = '';
+  for (var mi = 0; mi < nodeMedia.length; mi++) {
+    (function(idx) {
+      var m = nodeMedia[idx];
+      var tag = m.media_type==='video' ? '<video src="'+m.url+'"></video>' : '<img src="'+m.url+'">';
+      mediaHtml += '<div class="media-item" data-idx="'+idx+'">'+tag+'<button class="del-media" type="button">x</button></div>';
+    })(mi);
+  }
+
+  document.getElementById('nl').innerHTML += '<div class="modal show" id="m"><div class="modal-inner"><h3>'+(editingNodeId?'编辑节点':'新增节点')+'</h3>'
+    +'<div class="form-row"><select id="nt">'+typeOpts+'</select><input id="ntt" placeholder="标题" value="'+(node.title||'')+'"></div>'
+    +'<div class="editor-tb"><button onclick="document.execCommand(\'bold\')"><b>B</b></button><button onclick="document.execCommand(\'italic\')"><i>I</i></button><button onclick="document.execCommand(\'underline\')"><u>U</u></button><button onclick="document.execCommand(\'insertOrderedList\')">1.</button><button onclick="document.execCommand(\'insertUnorderedList\')">*</button><button onclick="var l=prompt(\'链接URL\');if(l)document.execCommand(\'createLink\',false,l)">Link</button><button onclick="document.execCommand(\'formatBlock\',false,\'<blockquote>\')">Quote</button></div>'
+    +'<div class="editor-box" contenteditable="true" id="nec">'+(node.content||'')+'</div>'
+    +'<div style="margin-top:12px"><label class="upload-zone" id="uz" style="display:block">点击或拖拽上传图片/视频<br><small style="color:var(--text2)">jpg/png/gif/webp/mp4 最大50MB</small><input type="file" id="fi" accept="image/*,video/*" style="display:none" multiple></label>'
+    +'<div class="media-list" id="ml">'+mediaHtml+'</div></div>'
+    +'<div class="form-row" style="margin-top:16px"><button class="btn" onclick="saveNode('+batchId+')">保存</button><button class="btn btn-outline" onclick="closeModal()">取消</button></div>'
+    +'</div></div>';
+
+  var uz = document.getElementById('uz');
+  var fi = document.getElementById('fi');
+  if (uz && fi) {
+    // Label click naturally opens file input
+    uz.ondragover = function(e){ e.preventDefault(); uz.classList.add('dragover'); };
+    uz.ondragleave = function(){ uz.classList.remove('dragover'); };
+    uz.ondrop = function(e){ e.preventDefault(); uz.classList.remove('dragover'); if(e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); };
+    fi.onchange = function(){ if(fi.files.length) uploadFiles(fi.files); fi.value = ''; };
+  }
+}
+
+async function uploadFiles(files) {
+  for (let i = 0; i < files.length; i++) {
+    let f = files[i];
+    let fd = new FormData();
+    fd.append('file', f);
+    try {
+      let res = await fetch('/trace/api/upload', { method:'POST', headers:{'Authorization':'Bearer '+token}, body:fd });
+      let data = await res.json();
+      if (data.ok) { nodeMedia.push({ media_type: f.type.startsWith('video/')?'video':'image', url:data.url }); renderMediaList(); } else { alert('上传失败: '+JSON.stringify(data)); }
+    } catch(e) { alert('上传失败: '+e.message); }
+  }
+}
+
+function renderMediaList() {
+  var el = document.getElementById('ml');
+  if (!el) return;
+  el.innerHTML = '';
+  for (var j = 0; j < nodeMedia.length; j++) {
+    (function(idx) {
+      var m = nodeMedia[idx];
+      var tag = m.media_type==='video' ? '<video src="'+m.url+'"></video>' : '<img src="'+m.url+'">';
+      var div = document.createElement('div');
+      div.className = 'media-item';
+      div.innerHTML = tag + '<button class="del-media" type="button">x</button>';
+      el.appendChild(div);
+    })(j);
+  }
+}
+
+async function saveNode(batchId) {
+  var content = document.getElementById('nec').innerHTML;
+  var data = { batch_id: parseInt(batchId), node_code: document.getElementById('nt').value, title: document.getElementById('ntt').value, content: content };
+  var result;
+  if (editingNodeId) {
+    result = await api('/nodes/'+editingNodeId, { method:'PUT', body:JSON.stringify(data) });
+  } else {
+    result = await api('/nodes', { method:'POST', body:JSON.stringify(data) });
+  }
+  // Save media if we have any
+  if (result && nodeMedia.length > 0) {
+    var nodeId = editingNodeId || result.id;
+    if (nodeId) {
+      await api('/nodes/'+nodeId+'/media', { method:'POST', body:JSON.stringify({ media: nodeMedia }) });
+    }
+  }
+  closeModal(); loadNodes();
+}
+
+async function delNode(id) { if(!confirm('确认删除？')) return; await api('/nodes/'+id, {method:'DELETE'}); loadNodes(); }
+
+function closeModal() {
+  var el = document.getElementById('m');
+  if (el) el.remove();
+}
+</script>
 </body>
 </html>
