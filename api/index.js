@@ -98,14 +98,16 @@ module.exports = async (req, res) => {
       await supabase.from('sn_codes').update({ query_count: (data.query_count||0)+1, last_query_at: now, first_query_at: data.first_query_at||now }).eq('id', data.id);
       await supabase.from('query_logs').insert({ sn_id: data.id, sn, query_result: 'valid' });
 
-      const { data: nodes } = await supabase.from('trace_nodes')
-        .select('*, trace_node_types!inner(name, icon), trace_media(*)')
+      const { data: nodeRows } = await supabase.from('trace_nodes')
+        .select('*, trace_media(*)')
         .eq('batch_id', data.batch_id).order('sort_order').order('id');
+      const { data: typeRows } = await supabase.from('trace_node_types').select('*');
+      const typeMap = {}; (typeRows||[]).forEach(t => { typeMap[t.code] = t; });
 
       const result = {
         sn: data.sn, query_count: (data.query_count||0)+1,
         product_name: data.products?.name||'', spec: data.products?.spec||'', price: data.products?.price||'',
-        nodes: (nodes||[]).map(n => ({ icon: n.trace_node_types?.icon||'', title: n.title||n.trace_node_types?.name||'', content: n.content }))
+        nodes: (nodeRows||[]).map(n => ({ icon: typeMap[n.node_code]?.icon||'', title: n.title||typeMap[n.node_code]?.name||'', content: n.content }))
       };
       return html(res, traceResultHTML(result, null));
     }
