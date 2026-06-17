@@ -8,5 +8,11 @@
       "destination": "/admin/",
       "permanent": true
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/trace/:path*",
+      "destination": "https://你的服务器IP/trace/:path*"
+    }
   ]
 }
