@@ -308,7 +308,7 @@ async function showNodeForm(batchId, nodeId) {
   for (var mi = 0; mi < nodeMedia.length; mi++) {
     (function(idx) {
       var m = nodeMedia[idx];
-      var tag = m.media_type==='video' ? '<video src="'+m.url+'"></video>' : '<img src="'+m.url+'">';
+      var tag = m.media_type==='video' ? '<video src="'+(m.data_url||m.url)+'"></video>' : '<img src="'+(m.data_url||m.url)+'">';
       mediaHtml += '<div class="media-item" data-idx="'+idx+'">'+tag+'<button class="del-media" type="button">x</button></div>';
     })(mi);
   }
@@ -338,10 +338,12 @@ async function uploadFiles(files) {
     let f = files[i];
     try {
       let reader = new FileReader();
-      let b64 = await new Promise(function(r) {
-        reader.onload = function() { r(reader.result.split(',')[1]); };
+      let dataUrl = await new Promise(function(r) {
+        reader.onload = function() { r(reader.result); };
         reader.readAsDataURL(f);
       });
+      let b64 = dataUrl.split(',')[1];
+      let mime = f.type || 'image/jpeg';
       let res = await fetch('/trace/api/upload', {
         method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
@@ -349,7 +351,12 @@ async function uploadFiles(files) {
       });
       let result = await res.json();
       if (result.ok) {
-        nodeMedia.push({ media_type: f.type.startsWith('video/')?'video':'image', url:result.url });
+        // Store data_url directly so it works everywhere
+        nodeMedia.push({ 
+          media_type: f.type.startsWith('video/')?'video':'image', 
+          url: result.data ? 'data:' + mime + ';base64,' + result.data : result.url,
+          data_url: 'data:' + mime + ';base64,' + (result.data || '')
+        });
         renderMediaList();
       } else {
         alert('上传失败: '+JSON.stringify(result));

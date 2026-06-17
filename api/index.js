@@ -184,7 +184,7 @@ module.exports = async (req, res) => {
           if (action === 'media' && id) {
             const b = await parseBody(req);
             await supabase.from('trace_media').delete().eq('trace_node_id', id);
-            if (b.media?.length) await supabase.from('trace_media').insert(b.media.map(m=>({...m, trace_node_id: parseInt(id)})));
+            if (b.media?.length) await supabase.from('trace_media').insert(b.media.map(m=>({trace_node_id: parseInt(id), media_type: m.media_type||'image', url: m.data_url || m.url || '', description: m.description||'', sort_order: m.sort_order||0})));
             return json(res, {ok:true, count: b.media?.length||0});
           }
           if (id && method === 'GET') { const { data } = await supabase.from('trace_nodes').select('*, trace_media(*)').eq('batch_id', id).order('sort_order').order('id'); const { data: types } = await supabase.from('trace_node_types').select('*'); const typeMap = {}; (types||[]).forEach(t => { typeMap[t.code] = t; }); return json(res, (data||[]).map(n=>({...n, type_name: typeMap[n.node_code]?.name||'', type_icon: typeMap[n.node_code]?.icon||'', media: n.trace_media||[]}))); }
