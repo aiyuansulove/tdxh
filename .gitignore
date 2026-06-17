@@ -34,3 +34,6 @@ static/data/
 .vercel
 package*.json
 public/
+*.txt
+ghp_*
+token*

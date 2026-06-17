@@ -106,6 +106,40 @@
         </div>
         {{ end }}
     </div>
+
+    <!-- Trace Query -->
+    <div class="trace-section reveal">
+        <div class="trace-divider"></div>
+        <h3 class="trace-title">{{ $origin.trace.title }}</h3>
+        <div class="trace-box">
+            <input type="text" class="trace-input" id="traceSnInput" placeholder="{{ $origin.trace.placeholder }}" maxlength="19">
+            <button class="trace-btn" id="traceSnBtn">{{ $origin.trace.buttonText }}</button>
+        </div>
+        <p class="trace-tip">{{ $origin.trace.tip }}</p>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var traceBtn = document.getElementById('traceSnBtn');
+        var traceInput = document.getElementById('traceSnInput');
+        if (traceBtn && traceInput) {
+            function doTraceQuery() {
+                var sn = traceInput.value.trim();
+                if (sn) {
+                    window.location.href = '/trace/' + encodeURIComponent(sn);
+                } else {
+                    traceInput.focus();
+                    traceInput.style.borderColor = '#e74c3c';
+                    setTimeout(function(){ traceInput.style.borderColor = ''; }, 1500);
+                }
+            }
+            traceBtn.addEventListener('click', doTraceQuery);
+            traceInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') doTraceQuery();
+            });
+        }
+    });
+    </script>
 </section>
 
 <!-- Culture -->
