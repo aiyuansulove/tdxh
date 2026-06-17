@@ -82,7 +82,7 @@
 </section>
 
 <!-- Origin -->
-<section class="section origin" id="origin">
+<section class="section origin" id="origin" style="scroll-margin-top:80px">
     <h2 class="section-title reveal">{{ $origin.title }}</h2>
     <p class="section-subtitle reveal">{{ $origin.subtitle }}</p>
     <div class="divider-gold reveal"></div>
@@ -97,7 +97,7 @@
             <div class="origin-stats-h">
                 {{ range $origin.stats }}
                 <div class="stat-h-item">
-                    <span class="stat-h-num">{{ .num }}</span>
+                    <span class="stat-h-num shiny-gold">{{ .num }}</span>
                     <span class="stat-h-label">{{ .label }}</span>
                 </div>
                 {{ end }}
@@ -138,6 +138,35 @@
                 if (e.key === 'Enter') doTraceQuery();
             });
         }
+
+        // CountUp animation
+        var observer = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    var el = entry.target;
+                    var text = el.textContent.trim();
+                    var num = parseInt(text.replace(/[^0-9]/g, ''));
+                    if (num && num > 0) {
+                        var start = 0;
+                        var dur = 1200;
+                        var step = Math.ceil(num / 30);
+                        var timer = setInterval(function() {
+                            start += step;
+                            if (start >= num) {
+                                el.textContent = text;
+                                clearInterval(timer);
+                            } else {
+                                el.textContent = start;
+                            }
+                        }, dur / 30);
+                    }
+                    observer.unobserve(el);
+                }
+            });
+        }, { threshold: 0.5 });
+        document.querySelectorAll('.stat-h-num').forEach(function(el) {
+            observer.observe(el);
+        });
     });
     </script>
 </section><!-- Culture -->
