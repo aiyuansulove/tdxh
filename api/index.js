@@ -213,8 +213,54 @@ module.exports = async (req, res) => {
           break;
         }
         case 'upload': {
-          // File upload isn't supported in serverless - return placeholder
-          return json(res, {error: '文件上传暂不支持'});
+          // File upload using /tmp (Vercel ephemeral storage)
+          const contentLength = parseInt(req.headers['content-length'] || '0');
+          if (contentLength > 50 * 1024 * 1024) return json(res, {error: '文件过大'}, 400);
+          const boundary = req.headers['content-type']?.split('boundary=')?.[1];
+          if (!boundary) return json(res, {error: '无效的请求格式'}, 400);
+          
+          // Read raw body and parse multipart
+          const bufs = [];
+          for await (const chunk of req) bufs.push(chunk);
+          const raw = Buffer.concat(bufs).toString('binary');
+          
+          // Simple multipart parser for single file
+          const b = boundary.trim();
+          const parts = raw.split('--' + b);
+          for (const part of parts) {
+            if (part.includes('Content-Disposition') && part.includes('filename=')) {
+              const headerEnd = part.indexOf('
+
+');
+              if (headerEnd < 0) continue;
+              const fileData = part.substring(headerEnd + 4);
+              const endMarker = '
+--' + b + '--';
+              const content = fileData.endsWith('
+') ? fileData.slice(0, -2) : fileData;
+              const cleanContent = content.replace(endMarker, '').replace(/
+$/, '');
+              
+              // Extract filename
+              const fnMatch = part.match(/filename="([^"]+)"/);
+              const filename = fnMatch ? fnMatch[1] : 'upload.dat';
+              const ext = path.extname(filename).toLowerCase();
+              const allowed = ['.jpg','.jpeg','.png','.gif','.webp','.mp4','.mov','.pdf'];
+              if (!allowed.includes(ext)) return json(res, {error: '不支持的文件格式'}, 400);
+              
+              const newName = Date.now() + '-' + Math.random().toString(36).slice(2) + ext;
+              const filePath = '/tmp/' + newName;
+              try {
+                // Convert binary string to buffer
+                const buf = Buffer.from(cleanContent, 'binary');
+                require('fs').writeFileSync(filePath, buf);
+                return json(res, { ok: true, url: '/trace/uploads/' + newName, filename: newName, size: buf.length });
+              } catch(e) {
+                return json(res, {error: '写入失败: ' + e.message}, 500);
+              }
+            }
+          }
+          return json(res, {error: '未找到文件'}, 400);
         }
       }
     }
@@ -225,3 +271,20 @@ module.exports = async (req, res) => {
     json(res, { error: e.message || 'Server error' }, 500);
   }
 };
+
+// Serve uploaded files from /tmp
+const upPath = '/trace/uploads/';
+if (pathname && pathname.startsWith(upPath)) {
+  const fileName = pathname.slice(upPath.length);
+  if (fileName && !fileName.includes('..')) {
+    const filePath = '/tmp/' + fileName;
+    if (require('fs').existsSync(filePath)) {
+      const ext = path.extname(fileName).toLowerCase();
+      const mimeTypes = {'.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.gif':'image/gif','.webp':'image/webp','.mp4':'video/mp4','.mov':'video/quicktime'};
+      const mime = mimeTypes[ext] || 'application/octet-stream';
+      const content = require('fs').readFileSync(filePath);
+      res.writeHead(200, {'Content-Type': mime, 'Content-Length': content.length, 'Cache-Control': 'public,max-age=3600'});
+      return res.end(content);
+    }
+  }
+}

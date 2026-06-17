@@ -274,6 +274,36 @@ async function loadNodes() {
   document.getElementById('nl').innerHTML = h;
 }
 
+function buildToolbar() {
+  var btns = [
+    ['undo', '↩', '撤销'], ['redo', '↪', '重做'], '|',
+    ['bold', '<b>B</b>', '加粗'], ['italic', '<i>I</i>', '斜体'], ['underline', '<u>U</u>', '下划线'], ['strikeThrough', '<s>S</s>', '删除线'], '|',
+    ['justifyLeft', '◀', '左对齐'], ['justifyCenter', '◆', '居中'], ['justifyRight', '▶', '右对齐'], '|',
+    ['insertOrderedList', '1.', '编号'], ['insertUnorderedList', '•', '列表'], ['outdent', '→', '减少缩进'], ['indent', '←', '增加缩进'], '|',
+    ['createLink', 'Link', '链接', true], ['unlink', '✂', '取消链接'], 
+    ['formatBlock_quote', '❝', '引用'], ['insertHorizontalRule', '—', '分割'], '|',
+    ['foreColor', '🎨', '颜色', true], ['removeFormat', '✕', '清除']
+  ];
+  var h = '<div class="editor-tb">';
+  for (var i = 0; i < btns.length; i++) {
+    if (btns[i] === '|') { h += '<span style="width:1px;height:20px;background:var(--border);margin:0 4px;display:inline-block"></span>'; continue; }
+    var b = btns[i];
+    if (b[3]) {
+      if (b[0] === 'createLink') {
+        h += '<button onclick="var l=prompt('链接URL');if(l)document.execCommand('createLink',false,l)" title="' + b[2] + '">' + b[1] + '</button>';
+      } else if (b[0] === 'foreColor') {
+        h += '<button onclick="var c=prompt('颜色: (如 #C9A96E)\",'#C9A96E');if(c)document.execCommand('foreColor',false,c)" title="' + b[2] + '">' + b[1] + '</button>';
+      }
+    } else if (b[0] === 'formatBlock_quote') {
+      h += '<button onclick="document.execCommand('formatBlock',false,'<blockquote>')" title="' + b[2] + '">' + b[1] + '</button>';
+    } else {
+      h += '<button onclick="document.execCommand('' + b[0] + '')" title="' + b[2] + '">' + b[1] + '</button>';
+    }
+  }
+  h += '</div>';
+  return h;
+}
+
 async function showNodeForm(batchId, nodeId) {
   editingNodeId = nodeId || null;
   nodeMedia = [];
