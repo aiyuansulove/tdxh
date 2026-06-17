@@ -185,7 +185,7 @@ module.exports = async (req, res) => {
             if (b.media?.length) await supabase.from('trace_media').insert(b.media.map(m=>({...m, trace_node_id: parseInt(id)})));
             return json(res, {ok:true, count: b.media?.length||0});
           }
-          if (id && method === 'GET') { const { data } = await supabase.from('trace_nodes').select('*, trace_node_types!inner(name, icon), trace_media(*)').eq('batch_id', id).order('sort_order').order('id'); return json(res, (data||[]).map(n=>({...n, type_name: n.trace_node_types?.name||'', type_icon: n.trace_node_types?.icon||'', media: n.trace_media||[]}))); }
+          if (id && method === 'GET') { const { data } = await supabase.from('trace_nodes').select('*, trace_media(*)').eq('batch_id', id).order('sort_order').order('id'); const { data: types } = await supabase.from('trace_node_types').select('*'); const typeMap = {}; (types||[]).forEach(t => { typeMap[t.code] = t; }); return json(res, (data||[]).map(n=>({...n, type_name: typeMap[n.node_code]?.name||'', type_icon: typeMap[n.node_code]?.icon||'', media: n.trace_media||[]}))); }
           if (method === 'POST') { const b = await parseBody(req); const { data, error } = await supabase.from('trace_nodes').insert(b).select(); if (error) return json(res, {error: error.message}, 500); return json(res, {ok:true, id: data?.[0]?.id}); }
           if (method === 'PUT' && id) { const b = await parseBody(req); await supabase.from('trace_nodes').update({...b, updated_at: new Date().toISOString()}).eq('id', id); return json(res, {ok:true}); }
           if (method === 'DELETE' && id) { await supabase.from('trace_nodes').delete().eq('id', id); return json(res, {ok:true}); }
