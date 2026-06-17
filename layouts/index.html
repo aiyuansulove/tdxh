@@ -90,10 +90,12 @@
     <div class="origin-compact">
         <!-- Left: Text + Stats + Trace -->
         <div class="origin-left reveal">
-            <div class="origin-text">
-                {{ range $origin.paragraphs }}
-                <p>{{ . }}</p>
-                {{ end }}
+            <div class="origin-text-scroll">
+                <div class="origin-text">
+                    {{ range $origin.paragraphs }}
+                    <p>{{ . }}</p>
+                    {{ end }}
+                </div>
             </div>
             <div class="origin-stats-row">
                 {{ range $origin.stats }}
