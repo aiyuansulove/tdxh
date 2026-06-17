@@ -223,7 +223,7 @@ module.exports = async (req, res) => {
             const buf = Buffer.from(b.data, 'base64');
             const fn = Date.now()+'-'+Math.random().toString(36).slice(2)+ext;
             require('fs').writeFileSync('/tmp/'+fn, buf);
-            return json(res, {ok:true, url:'/trace/uploads/'+fn, filename:fn, size:buf.length});
+            return json(res, {ok:true, url:'/trace/uploads/'+fn, filename:fn, size:buf.length, data:b.data});
           } catch(e) { return json(res, {error: '写入失败'}, 500); }
         }
       }
