@@ -35,16 +35,45 @@ function parseBody(req) {
 
 // Simple HTML for trace result
 function traceResultHTML(data, error) {
-  const brandCSS = `body{font-family:'Noto Serif SC','PingFang SC',serif;background:#0a0a0c;color:#d4cfc4;max-width:800px;margin:0 auto;padding:24px;line-height:1.8}.gold{color:#C9A96E}.num{font-size:1.3rem;color:#e4ce9a}.card{border:1px solid rgba(201,169,110,.12);border-radius:2px;padding:24px;margin-bottom:24px;background:#16161c}.status{text-align:center;padding:24px;border:1px solid rgba(46,204,113,.15);background:rgba(46,204,113,.03)}.sn{font-family:monospace;color:#C9A96E}.tl{border-left:1px solid rgba(201,169,110,.2);padding-left:24px}.tl-item{margin-bottom:20px}.tl-dot{color:#C9A96E}.tl-title{color:#f0eadb}`;
+  const brandCSS = `body{font-family:'Noto Serif SC','PingFang SC',serif;background:#0a0a0c;color:#d4cfc4;max-width:800px;margin:0 auto;padding:24px;line-height:1.8}.gold{color:#C9A96E}.num{font-size:1.3rem;color:#e4ce9a}.card{border:1px solid rgba(201,169,110,.12);border-radius:2px;padding:24px;margin-bottom:24px;background:#16161c}.status{text-align:center;padding:24px;border:1px solid rgba(46,204,113,.15);background:rgba(46,204,113,.03)}.sn{font-family:monospace;color:#C9A96E}.tl{border-left:1px solid rgba(201,169,110,.2);padding-left:24px}.tl-item{margin-bottom:20px}.tl-dot{color:#C9A96E}.tl-title{color:#f0eadb}.lb{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.93);display:none;align-items:center;justify-content:center}.lb.show{display:flex}.lb img{max-width:90vw;max-height:90vh;object-fit:contain}.lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(201,169,110,.12);border:1px solid rgba(201,169,110,.2);color:#C9A96E;width:40px;height:40px;border-radius:50%;font-size:1.4rem;cursor:pointer;display:flex;align-items:center;justify-content:center}.lb-prev{left:16px}.lb-next{right:16px}.lb-close{position:absolute;top:12px;right:16px;color:#8a8578;font-size:1.8rem;cursor:pointer;background:none;border:none;font-family:inherit}.lb-close:hover{color:#C9A96E}.lb-ct{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);color:#5a5550;font-size:.78rem}`;
   const head = `<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>天地鲟鳇 · 产品溯源</title><style>${brandCSS}</style>`;
 
-  if (error) return `<!DOCTYPE html><html><head>${head}</head><body><h2 style="color:#e74c3c">${error}</h2><p style="color:#8a8578">请确认溯源码正确</p></body></html>`;
+  if (error) return `<!DOCTYPE html><html><head>${head}</head><body><h2 style="color:#e74c3c">${error}</h2><p style="color:#8a8578">请确认溯源码正确</p>
+  <div class="lb" id="lb" onclick="closeLB(event)">
+    <button class="lb-close" onclick="closeLB()">x</button>
+    <button class="lb-nav lb-prev" id="lbP" onclick="event.stopPropagation();navLB(-1)">&#8249;</button>
+    <img id="lbImg" src="" alt="">
+    <button class="lb-nav lb-next" id="lbN" onclick="event.stopPropagation();navLB(1)">&#8250;</button>
+    <div class="lb-ct" id="lbC"></div>
+  </div>
+  <script>
+  var lbImgs=[],lbCur=0;
+  function openLB(i){
+    lbImgs=[];document.querySelectorAll('.tl-item img').forEach(function(x){lbImgs.push(x.src);});
+    if(!lbImgs.length)return;lbCur=Math.min(i,lbImgs.length-1);
+    document.getElementById('lbImg').src=lbImgs[lbCur];
+    document.getElementById('lbC').textContent=(lbCur+1)+'/'+lbImgs.length;
+    var s=lbImgs.length>1?'flex':'none';
+    document.getElementById('lbP').style.display=s;document.getElementById('lbN').style.display=s;
+    document.getElementById('lb').classList.add('show');document.body.style.overflow='hidden';
+  }
+  function closeLB(e){if(e&&e.target!==e.currentTarget)return;
+    document.getElementById('lb').classList.remove('show');document.body.style.overflow='';}
+  document.addEventListener('keydown',function(e){
+    if(!document.getElementById('lb').classList.contains('show'))return;
+    if(e.key==='Escape')closeLB();if(e.key==='ArrowLeft')navLB(-1);if(e.key==='ArrowRight')navLB(1);
+  });
+  function navLB(d){lbCur=(lbCur+d+lbImgs.length)%lbImgs.length;
+    document.getElementById('lbImg').src=lbImgs[lbCur];
+    document.getElementById('lbC').textContent=(lbCur+1)+'/'+lbImgs.length;}
+  </script>
+`;
 
   return `<!DOCTYPE html><html><head>${head}</head><body>
     <h1 style="color:#f0eadb;font-weight:300;text-align:center">天地鲟鳇 · 产品溯源</h1>
     <div class="status"><div class="sn">${data.sn}</div><div style="color:#2ecc71;font-size:1.1rem">✅ 正品验证通过</div><div style="color:#5a5550;font-size:.8rem">查询 ${data.query_count} 次</div></div>
     <div class="card"><h3 style="color:#f0eadb">${data.product_name||''}</h3><div class="gold">${data.spec||''}</div></div>
-    ${data.nodes ? `<div style="text-align:center;color:#C9A96E;margin-bottom:16px">溯源时间线</div><div class="tl">${data.nodes.map(n => `<div class="tl-item"><div class="tl-dot">${n.icon||''}</div><div class="tl-title">${n.title||n.type||''}</div><div style="color:#8a8578;font-size:.85rem">${n.content||''}</div>${(n.media||[]).filter(m=>m.media_type!=='video').map(m=>'<img src="'+m.url+'" style="max-width:100%;max-height:200px;margin-top:8px;border-radius:2px" >').join('')}</div>`).join('')}</div>` : ''}
+    ${data.nodes ? `<div style="text-align:center;color:#C9A96E;margin-bottom:16px">溯源时间线</div><div class="tl">${data.nodes.map(n => `<div class="tl-item"><div class="tl-dot">${n.icon||''}</div><div class="tl-title">${n.title||n.type||''}</div><div style="color:#8a8578;font-size:.85rem">${n.content||''}</div>${(n.media||[]).filter(m=>m.media_type!=='video').map((m,mi)=>'<img src="'+m.url+'" style="max-width:100%;max-height:200px;margin-top:8px;border-radius:2px;cursor:pointer" onclick="openLB('+mi+')" >').join('')}</div>`).join('')}</div>` : ''}
     <div style="text-align:center;padding:32px 0;border-top:1px solid rgba(201,169,110,.08);margin-top:32px"><a href="https://tdxh01.xyz" style="color:#C9A96E;text-decoration:none;font-size:.8rem">天地鲟鳇 官方网站</a></div>
   </body></html>`;
 }
