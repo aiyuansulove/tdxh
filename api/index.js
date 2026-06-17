@@ -75,7 +75,36 @@ function traceResultHTML(data, error) {
     <div class="card"><h3 style="color:#f0eadb">${data.product_name||''}</h3><div class="gold">${data.spec||''}</div></div>
     ${data.nodes ? `<div style="text-align:center;color:#C9A96E;margin-bottom:16px">溯源时间线</div><div class="tl">${data.nodes.map(n => `<div class="tl-item"><div class="tl-dot">${n.icon||''}</div><div class="tl-title">${n.title||n.type||''}</div><div style="color:#8a8578;font-size:.85rem">${n.content||''}</div>${(n.media||[]).filter(m=>m.media_type!=='video').map((m,mi)=>'<img src="'+m.url+'" style="max-width:100%;max-height:200px;margin-top:8px;border-radius:2px;cursor:pointer" onclick="openLB('+mi+')" >').join('')}</div>`).join('')}</div>` : ''}
     <div style="text-align:center;padding:32px 0;border-top:1px solid rgba(201,169,110,.08);margin-top:32px"><a href="https://tdxh01.xyz" style="color:#C9A96E;text-decoration:none;font-size:.8rem">天地鲟鳇 官方网站</a></div>
-  </body></html>`;
+  
+<div class="lb" id="lb" onclick="closeLB(event)">
+    <button class="lb-close" onclick="closeLB()">x</button>
+    <button class="lb-nav lb-prev" id="lbP" onclick="event.stopPropagation();navLB(-1)">&#8249;</button>
+    <img id="lbImg" src="" alt="">
+    <button class="lb-nav lb-next" id="lbN" onclick="event.stopPropagation();navLB(1)">&#8250;</button>
+    <div class="lb-ct" id="lbC"></div>
+  </div>
+  <script>
+  var lbImgs=[],lbCur=0;
+  function openLB(i){
+    lbImgs=[];document.querySelectorAll('.tl-item img').forEach(function(x){lbImgs.push(x.src);});
+    if(!lbImgs.length)return;lbCur=Math.min(i,lbImgs.length-1);
+    document.getElementById('lbImg').src=lbImgs[lbCur];
+    document.getElementById('lbC').textContent=(lbCur+1)+'/'+lbImgs.length;
+    var s=lbImgs.length>1?'flex':'none';
+    document.getElementById('lbP').style.display=s;document.getElementById('lbN').style.display=s;
+    document.getElementById('lb').classList.add('show');document.body.style.overflow='hidden';
+  }
+  function closeLB(e){if(e&&e.target!==e.currentTarget)return;
+    document.getElementById('lb').classList.remove('show');document.body.style.overflow='';}
+  document.addEventListener('keydown',function(e){
+    if(!document.getElementById('lb').classList.contains('show'))return;
+    if(e.key==='Escape')closeLB();if(e.key==='ArrowLeft')navLB(-1);if(e.key==='ArrowRight')navLB(1);
+  });
+  function navLB(d){lbCur=(lbCur+d+lbImgs.length)%lbImgs.length;
+    document.getElementById('lbImg').src=lbImgs[lbCur];
+    document.getElementById('lbC').textContent=(lbCur+1)+'/'+lbImgs.length;}
+  </script>
+</body></html>`;
 }
 
 module.exports = async (req, res) => {
