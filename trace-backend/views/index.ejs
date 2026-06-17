@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><%= title %></title>
+<style>
+:root{--gold:#C9A96E;--gold-light:#e4ce9a;--gold-dim:#8b6f3a;--black:#0a0a0c;--black-soft:#111115;--black-warm:#16161c;--cream:#f0eadb;--cream-dim:#c4b99a;--text:#d4cfc4;--text-dim:#8a8578;--text-muted:#5a5550;--border:rgba(201,169,110,.12);--ease:cubic-bezier(0.4,0,0.2,1)}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;background:var(--black)}
+body{font-family:'Noto Serif SC','PingFang SC',serif;background:var(--black);color:var(--text);line-height:1.8;min-height:100vh;display:flex;flex-direction:column;align-items:center;-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;height:auto;display:block}
+
+/* Header */
+.trace-wrap{width:100%;max-width:800px;padding:0 24px;flex:1;display:flex;flex-direction:column}
+.trace-header{text-align:center;padding:48px 0 36px;position:relative}
+.trace-header::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:36px;height:1px;background:var(--gold);opacity:.4}
+.trace-logo{width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--gold-dim);margin:0 auto 16px;transition:transform .6s var(--ease),border-color .6s}
+.trace-logo:hover{transform:scale(1.04);border-color:var(--gold)}
+.trace-header h1{font-size:1.3rem;color:var(--cream);letter-spacing:.14em;font-weight:300}
+.trace-header p{font-size:.68rem;color:var(--gold);letter-spacing:.25em;margin-top:6px;text-transform:uppercase}
+
+/* Search */
+.search-box{max-width:480px;margin:32px auto;width:100%}
+.search-inner{display:flex;gap:10px;position:relative}
+.search-inner input{flex:1;padding:13px 18px;background:var(--black-warm);border:1px solid var(--border);border-radius:2px;color:var(--cream);font-family:inherit;font-size:.88rem;outline:none;transition:border-color .4s,box-shadow .4s}
+.search-inner input:focus{border-color:var(--gold);box-shadow:0 0 20px rgba(201,169,110,.06)}
+.search-inner input::placeholder{color:var(--text-muted);font-size:.82rem;letter-spacing:.04em}
+.search-inner button{padding:13px 30px;background:transparent;color:var(--gold);border:1px solid var(--gold);border-radius:2px;font-size:.8rem;letter-spacing:.18em;cursor:pointer;transition:all .4s;font-family:inherit;text-transform:uppercase}
+.search-inner button:hover{background:var(--gold);color:var(--black)}
+
+/* ShinyGold animation */
+@keyframes shiny{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.shiny-gold{background:linear-gradient(120deg,var(--gold-dim) 0%,var(--gold) 40%,#f0e6c5 50%,var(--gold) 60%,var(--gold-dim) 100%);background-size:250% 100%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shiny 4s ease-in-out infinite}
+
+/* Result */
+.result-area{flex:1;animation:fadeUp .6s var(--ease)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%{opacity:.6}50%{opacity:1}100%{opacity:.6}}
+
+/* Error */
+.error-box{text-align:center;padding:48px 20px}
+.error-box .error-icon{font-size:2.6rem;margin-bottom:14px;opacity:.6}
+.error-box h2{font-size:1.1rem;color:#e74c3c;margin-bottom:8px;font-weight:400;letter-spacing:.06em}
+.error-box p{font-size:.82rem;color:var(--text-muted)}
+
+/* Verified badge */
+.verified{text-align:center;padding:28px 24px;border:1px solid rgba(46,204,113,.15);border-radius:2px;margin-bottom:28px;background:rgba(46,204,113,.03)}
+.verified .v-icon{font-size:2rem;margin-bottom:6px}
+.verified .v-sn{font-size:.8rem;color:var(--gold);letter-spacing:.15em;font-family:monospace;margin-bottom:2px}
+.verified .v-status{font-size:1.05rem;color:#2ecc71;margin-bottom:6px;letter-spacing:.1em;font-weight:400}
+.verified .v-count{font-size:.72rem;color:var(--text-muted)}
+
+/* Product card */
+.product-card{padding:28px 24px;border:1px solid var(--border);border-radius:2px;margin-bottom:28px;background:var(--black-warm);transition:border-color .4s}
+.product-card:hover{border-color:rgba(201,169,110,.25)}
+.product-card h3{font-size:1.1rem;color:var(--cream);letter-spacing:.08em;font-weight:400;margin-bottom:4px}
+.product-card .p-meta{font-size:.75rem;color:var(--gold);letter-spacing:.12em;margin-bottom:10px}
+.product-card .p-price{font-size:1.3rem;color:var(--gold-light);letter-spacing:.04em;font-weight:600}
+.product-card .p-desc{font-size:.8rem;color:var(--text-dim);line-height:1.9;margin-top:10px}
+
+/* Timeline */
+.tl-section-title{text-align:center;font-size:.82rem;color:var(--gold);letter-spacing:.18em;margin-bottom:28px;position:relative}
+.tl-section-title::before,.tl-section-title::after{content:'';display:inline-block;width:24px;height:1px;background:var(--gold-dim);vertical-align:middle;margin:0 12px;opacity:.4}
+.timeline{position:relative;padding-left:28px}
+.timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:1px;background:linear-gradient(to bottom,transparent,var(--gold-dim),var(--gold-dim),transparent);opacity:.3}
+.tl-item{position:relative;padding:0 0 32px 20px;animation:fadeUp .5s var(--ease) both}
+.tl-item:last-child{padding-bottom:0}
+.tl-dot{position:absolute;left:-24px;top:8px;width:10px;height:10px;border-radius:50%;background:var(--gold);border:2px solid var(--black);box-shadow:0 0 0 3px rgba(201,169,110,.15)}
+.tl-icon{font-size:.95rem;margin-right:6px;opacity:.8}
+.tl-title{font-size:.88rem;color:var(--cream);letter-spacing:.06em;margin-bottom:6px;font-weight:500}
+.tl-content{font-size:.78rem;color:var(--text-dim);line-height:1.9}
+.tl-media{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+/* Lightbox */
+.lightbox{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;cursor:zoom-out}
+.lightbox.show{display:flex}
+.lightbox img{max-width:90vw;max-height:90vh;object-fit:contain;border-radius:4px;cursor:default;animation:fadeUp .3s ease}
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(201,169,110,.12);border:1px solid rgba(201,169,110,.2);color:var(--gold);width:44px;height:44px;border-radius:50%;font-size:1.2rem;cursor:pointer;transition:all .3s;display:flex;align-items:center;justify-content:center;font-family:inherit}
+.lightbox-nav:hover{background:rgba(201,169,110,.25)}
+.lightbox-prev{left:24px}
+.lightbox-next{right:24px}
+.lightbox-close{position:absolute;top:20px;right:24px;background:none;border:none;color:var(--text-dim);font-size:1.6rem;cursor:pointer;transition:color .3s;font-family:inherit}
+.lightbox-close:hover{color:var(--gold)}
+.lightbox-counter{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:var(--text-muted);font-size:.78rem;letter-spacing:.12em}
+
+.tl-media{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap}
+.tl-media img{width:200px;height:140px;object-fit:cover;border-radius:3px;cursor:pointer;transition:transform .4s,box-shadow .4s;border:1px solid var(--border)}
+.tl-media img:hover{transform:scale(1.03);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.tl-media img.single{width:100%;max-width:360px;height:220px}
+.tl-media video{width:100%;max-width:400px;border-radius:3px;border:1px solid var(--border);margin-top:4px}
+.tl-media video{width:100%;max-width:360px;border-radius:2px;border:1px solid var(--border)}
+
+/* Footer */
+.footer{text-align:center;padding:36px 0;border-top:1px solid var(--border);margin-top:48px}
+.footer a{color:var(--gold);font-size:.75rem;letter-spacing:.15em;transition:opacity .3s}
+.footer a:hover{opacity:.7}
+.footer p{font-size:.65rem;color:var(--text-muted);margin-top:8px;letter-spacing:.08em}
+
+/* Loading state */
+.loading{text-align:center;padding:48px 0;color:var(--text-muted);font-size:.85rem;animation:pulse 1.5s ease-in-out infinite}
+
+@media(max-width:640px){
+  .trace-wrap{padding:0 16px}
+  .trace-header{padding:36px 0 28px}
+  .trace-header h1{font-size:1.1rem}
+  .search-inner{flex-direction:column;gap:8px}
+  .search-inner input{padding:12px 16px}
+  .search-inner button{padding:12px 24px}
+  .product-card{padding:20px 16px}
+  .verified{padding:22px 16px}
+  .tl-item{padding-bottom:24px}
+  .tl-media img{width:90px;height:60px}
+}
+</style>
+</head>
+<body>
+<div class="trace-wrap">
+  <div class="trace-header">
+    <img class="trace-logo" src="/images/logo1.png" alt="天地鲟鳇" onerror="this.style.display='none'">
+    <h1>天地鲟鳇<span style="font-size:.7rem;opacity:.5;display:block;margin-top:4px;letter-spacing:.25em;font-weight:300;color:var(--gold)">· 产品溯源 ·</span></h1>
+    <p>正品查询唯一网址</p>
+  </div>
+
+  <div class="search-box">
+    <form class="search-inner" action="/trace" method="GET" onsubmit="var sn=this.querySelector('input').value.trim();if(sn){this.action='/trace/'+encodeURIComponent(sn);return true;}return false;">
+      <input type="text" name="sn" placeholder="输入产品溯源码" value="<%= sn %>" maxlength="19" required>
+      <button type="submit">查 询</button>
+    </form>
+  </div>
+
+  <div class="result-area">
+    <% if (error) { %>
+    <div class="error-box">
+      <div class="error-icon">&#9888;</div>
+      <h2><%= error %></h2>
+      <p>请确认输入的溯源码正确，或扫描产品包装上的二维码</p>
+    </div>
+    <% } %>
+
+    <% if (result) { %>
+    <div class="verified">
+      <div class="v-icon">&#10004;</div>
+      <div class="v-sn"><%= result.sn %></div>
+      <div class="v-status">正品验证通过</div>
+      <div class="v-count">已被查询 <%= result.query_count %> 次 &nbsp;|&nbsp; 首次 <%= result.first_query_at ? result.first_query_at.slice(0,10) : '本次' %></div>
+    </div>
+
+    <div class="product-card">
+      <h3><%= result.product_name %></h3>
+      <div class="p-meta"><%= result.spec %> &nbsp;|&nbsp; 批次：<%= result.batch_no %></div>
+      <% if (result.price) { %><div class="p-price shiny-gold"><%= result.price %></div><% } %>
+      <% if (result.product_desc) { %><div class="p-desc"><%= result.product_desc %></div><% } %>
+    </div>
+
+    <% if (nodes && nodes.length) { %>
+    <div class="tl-section-title">溯源时间线</div>
+    <div class="timeline">
+      <% nodes.forEach(function(node, idx){ %>
+      <div class="tl-item" id="node-<%= node.id %>" style="animation-delay:<%= idx*0.08 %>s">
+        <div class="tl-dot"></div>
+        <div class="tl-title"><span class="tl-icon"><%= node.type_icon || '' %></span><%= node.title || node.type_name %></div>
+        <% if (node.content) { %><div class="tl-content"><%- node.content %></div><% } %>
+        <% if (node.media && node.media.length) { %>
+        <div class="tl-media">
+          <% 
+          var nodeImgs = []; 
+          node.media.forEach(function(m, mi){ 
+            if(m.media_type === 'image') nodeImgs.push(m.url);
+          }); 
+          var totalImgs = nodeImgs.length;
+          %>
+          <% node.media.forEach(function(m, mi){ %>
+            <% if (m.media_type === 'video') { %>
+              <video controls src="<%= m.url %>" poster="<%= m.cover_url || '' %>"></video>
+            <% } else { %>
+              <img src="<%= m.url %>" alt="<%= m.description || '' %>" loading="lazy" class="<%= totalImgs <= 1 ? 'single' : '' %>" onclick="openLightbox('<%= node.id %>', <%= mi - node.media.slice(0,mi).filter(function(x){return x.media_type!=='image';}).length %>)" onerror="this.style.display='none'">
+            <% } %>
+          <% }); %>
+        </div>
+        <% } %>
+      </div>
+      <% }); %>
+    </div>
+    <% } %>
+    <% } %>
+  </div>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+    <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+    <button class="lightbox-nav lightbox-prev" id="lbPrev" onclick="event.stopPropagation();navigateLightbox(-1)">&#8249;</button>
+    <img id="lbImage" src="" alt="">
+    <button class="lightbox-nav lightbox-next" id="lbNext" onclick="event.stopPropagation();navigateLightbox(1)">&#8250;</button>
+    <div class="lightbox-counter" id="lbCounter"></div>
+  </div>
+
+  <script>
+  var lbImages = [];
+  var lbCurrent = 0;
+
+  function openLightbox(nodeId, imgIdx) {
+    // Collect all images from this node
+    lbImages = [];
+    var items = document.querySelectorAll('#node-' + nodeId + ' .tl-media img');
+    items.forEach(function(img) { lbImages.push(img.src); });
+    if (lbImages.length === 0) return;
+    lbCurrent = Math.min(imgIdx, lbImages.length - 1);
+    showLightboxImage();
+    document.getElementById('lightbox').classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function showLightboxImage() {
+    var lb = document.getElementById('lbImage');
+    lb.src = lbImages[lbCurrent];
+    document.getElementById('lbCounter').textContent = (lbCurrent + 1) + ' / ' + lbImages.length;
+    document.getElementById('lbPrev').style.display = lbImages.length > 1 ? 'flex' : 'none';
+    document.getElementById('lbNext').style.display = lbImages.length > 1 ? 'flex' : 'none';
+  }
+
+  function navigateLightbox(dir) {
+    lbCurrent = (lbCurrent + dir + lbImages.length) % lbImages.length;
+    showLightboxImage();
+  }
+
+  function closeLightbox(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('lightbox').classList.remove('show');
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (!document.getElementById('lightbox').classList.contains('show')) return;
+    if (e.key === 'Escape') closeLightbox();
+    if (e.key === 'ArrowLeft') navigateLightbox(-1);
+    if (e.key === 'ArrowRight') navigateLightbox(1);
+  });
+  </script>
+
+  <div class="footer">
+    <a href="https://tdxh01.xyz">天地鲟鳇 官方网站</a>
+    <p>&copy; 2025 天地鲟鳇 &middot; All Rights Reserved</p>
+  </div>
+</div>
+</body>
+</html>

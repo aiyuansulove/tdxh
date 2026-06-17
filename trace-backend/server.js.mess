@@ -1,0 +1,403 @@
+const express = require('express');
+const path = require('path');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
+const { getDb, saveDb, initDb } = require('./db');
+const multer = require('multer');
+
+// Multer config for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(__dirname, 'public', 'uploads')),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + Math.random().toString(36).slice(2) + path.extname(file.originalname))
+});
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+  fileFilter: (req, file, cb) => {
+    const types = /jpeg|jpg|png|gif|webp|mp4|mov|avi|pdf|txt/;
+    const ext = types.test(path.extname(file.originalname).toLowerCase());
+    cb(null, ext);
+  }
+});
+
+const app = express();
+const PORT = process.env.PORT || 3456;
+const JWT_SECRET = 'tdxh-trace-secret-2025';
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use('/trace/public', express.static(path.join(__dirname, 'public')));
+
+// Set EJS as view engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+// ==================== Helper ====================
+function auth(req, res, next) {
+  const token = req.cookies?.token || req.headers?.authorization?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ error: '未登录' });
+  try {
+    req.admin = jwt.verify(token, JWT_SECRET);
+    next();
+  } catch { res.status(401).json({ error: '登录已过期' }); }
+}
+
+// ==================== Consumer Routes ====================
+
+// Trace home page
+// ==================== File Upload ====================
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'public', 'uploads');
+if (!require('fs').existsSync(uploadsDir)) require('fs').mkdirSync(uploadsDir, { recursive: true });
+
+app.post('/trace/api/upload', auth, upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '请选择文件' });
+  const url = '/trace/uploads/' + req.file.filename;
+  res.json({ ok: true, url, filename: req.file.filename, size: req.file.size });
+});
+
+app.post('/trace/api/ping', (req, res) => res.json({ok:true}));
+
+// Serve uploaded files
+app.use('/trace/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+
+
+app.get('/trace', (req, res) => {
+  res.render('index', { title: '天地鲟鳇 · 产品溯源', sn: '', result: null, error: null });
+});
+
+// Trace result by SN
+app.get('/trace/:sn', async (req, res) => {
+  console.log('SN handler called with:', req.params.sn);
+  const sn = req.params.sn;
+  if (sn === 'admin' || sn.startsWith('admin/')) return res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
+  if (sn === 'api') return res.redirect('/trace/admin');
+  if (!sn || sn.length < 5) {
+    return res.render('index', { title: '天地鲟鳇 · 产品溯源', sn, result: null, error: '溯源码格式不正确' });
+  }
+
+  try {
+    const db = await getDb();
+    const rows = db.exec('SELECT s.*, p.name as product_name, p.category, p.spec, p.price, p.cover_image, p.description as product_desc, b.batch_no, b.fry_source, b.fry_date, b.harvest_date, b.process_date FROM sn_codes s JOIN products p ON s.product_id = p.id JOIN batches b ON s.batch_id = b.id WHERE s.sn = ?', [sn]);
+
+    if (!rows.length || !rows[0].values.length) {
+      return res.render('index', { title: '天地鲟鳇 · 产品溯源', sn, result: null, error: '未查询到该产品，谨防假冒' });
+    }
+
+    const cols = rows[0].columns;
+    const vals = rows[0].values[0];
+    const row = {};
+    cols.forEach((c, i) => row[c] = vals[i]);
+
+    if (row.status === 'revoked') {
+      return res.render('index', { title: '天地鲟鳇 · 产品溯源', sn, result: null, error: '该溯源码已被注销' });
+    }
+
+    // Update query count
+    const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    db.run('UPDATE sn_codes SET query_count = query_count + 1, last_query_at = ? WHERE id = ?', [now, row.id]);
+    if (!row.first_query_at) {
+      db.run('UPDATE sn_codes SET first_query_at = ? WHERE id = ?', [now, row.id]);
+    }
+    db.run('INSERT INTO query_logs (sn_id, sn, ip, user_agent, query_result) VALUES (?, ?, ?, ?, ?)', [row.id, sn, req.ip || '', req.headers['user-agent'] || '', 'valid']);
+
+    row.query_count += 1;
+    row.first_query_at = row.first_query_at || now;
+    row.last_query_at = now;
+
+    // Get trace nodes
+    const nodesRaw = db.exec('SELECT t.*, n.name as type_name, n.icon as type_icon FROM trace_nodes t JOIN trace_node_types n ON t.node_code = n.code WHERE t.batch_id = ? ORDER BY t.sort_order, t.id', [row.batch_id]);
+    const nodes = [];
+    if (nodesRaw.length && nodesRaw[0].values.length) {
+      const nCols = nodesRaw[0].columns;
+      for (const v of nodesRaw[0].values) {
+        const node = {};
+        nCols.forEach((c, i) => node[c] = v[i]);
+
+        // Get media for this node
+        const mediaRaw = db.exec('SELECT * FROM trace_media WHERE trace_node_id = ? ORDER BY sort_order, id', [node.id]);
+        node.media = [];
+        if (mediaRaw.length && mediaRaw[0].values.length) {
+          const mCols = mediaRaw[0].columns;
+          for (const mv of mediaRaw[0].values) {
+            const m = {};
+            mCols.forEach((c, i) => m[c] = mv[i]);
+            node.media.push(m);
+          }
+        }
+        nodes.push(node);
+      }
+    }
+
+    saveDb();
+    res.render('index', { title: '天地鲟鳇 · 产品溯源', sn, result: row, error: null, nodes });
+  } catch (e) {
+    console.error(e);
+    res.render('index', { title: '天地鲟鳇 · 产品溯源', sn, result: null, error: '系统错误，请稍后重试' });
+  }
+});
+
+// ==================== Admin API ====================
+
+// Admin login
+app.post('/trace/api/admin/login', async (req, res) => {
+  const { username, password } = req.body;
+  try {
+    const db = await getDb();
+    const rows = db.exec('SELECT * FROM admins WHERE username = ? AND status = 1', [username]);
+    if (!rows.length || !rows[0].values.length) return res.status(401).json({ error: '用户名或密码错误' });
+
+    const cols = rows[0].columns;
+    const vals = rows[0].values[0];
+    const admin = {};
+    cols.forEach((c, i) => admin[c] = vals[i]);
+
+    if (!bcrypt.compareSync(password, admin.password)) return res.status(401).json({ error: '用户名或密码错误' });
+
+    const token = jwt.sign({ id: admin.id, username: admin.username, role: admin.role }, JWT_SECRET, { expiresIn: '7d' });
+    res.cookie('token', token, { httpOnly: true, maxAge: 7 * 24 * 60 * 60 * 1000 });
+    res.json({ ok: true, token, admin: { username: admin.username, nickname: admin.nickname, role: admin.role } });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Admin check
+app.get('/trace/api/admin/me', auth, (req, res) => {
+  res.json({ ok: true, admin: req.admin });
+});
+
+// ==================== Products CRUD ====================
+app.get('/trace/api/products', auth, async (req, res) => {
+  const db = await getDb();
+  const r = db.exec('SELECT * FROM products ORDER BY sort, id');
+  const items = [];
+  if (r.length && r[0].values.length) {
+    const cols = r[0].columns;
+    for (const v of r[0].values) {
+      const o = {};
+      cols.forEach((c, i) => o[c] = v[i]);
+      items.push(o);
+    }
+  }
+  res.json(items);
+});
+
+app.post('/trace/api/products', auth, async (req, res) => {
+  const { name, category, spec, price, description } = req.body;
+  const db = await getDb();
+  db.run('INSERT INTO products (name, category, spec, price, description) VALUES (?,?,?,?,?)', [name, category || '', spec || '', price || '', description || '']);
+  saveDb();
+  res.json({ ok: true });
+});
+
+app.put('/trace/api/products/:id', auth, async (req, res) => {
+  const { name, category, spec, price, description, status } = req.body;
+  const db = await getDb();
+  db.run('UPDATE products SET name=?, category=?, spec=?, price=?, description=?, status=?, updated_at=datetime(\'now\',\'localtime\') WHERE id=?', [name, category || '', spec || '', price || '', description || '', status ?? 1, req.params.id]);
+  saveDb();
+  res.json({ ok: true });
+});
+
+app.delete('/trace/api/products/:id', auth, async (req, res) => {
+  const db = await getDb();
+  db.run('DELETE FROM products WHERE id=?', [req.params.id]);
+  saveDb();
+  res.json({ ok: true });
+});
+
+// ==================== Batches CRUD ====================
+app.get('/trace/api/batches', auth, async (req, res) => {
+  const db = await getDb();
+  const r = db.exec('SELECT b.*, p.name as product_name FROM batches b JOIN products p ON b.product_id = p.id ORDER BY b.id DESC');
+  const items = [];
+  if (r.length && r[0].values.length) {
+    const cols = r[0].columns;
+    for (const v of r[0].values) {
+      const o = {};
+      cols.forEach((c, i) => o[c] = v[i]);
+      items.push(o);
+    }
+  }
+  res.json(items);
+});
+
+app.post('/trace/api/batches', auth, async (req, res) => {
+  const { product_id, batch_no, quantity, fry_source, fry_date, harvest_date, process_date } = req.body;
+  const db = await getDb();
+  try {
+    db.run('INSERT INTO batches (product_id, batch_no, quantity, fry_source, fry_date, harvest_date, process_date) VALUES (?,?,?,?,?,?,?)', [product_id, batch_no, quantity || 0, fry_source || '', fry_date || '', harvest_date || '', process_date || '']);
+    saveDb();
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.put('/trace/api/batches/:id', auth, async (req, res) => {
+  const { product_id, batch_no, quantity, fry_source, fry_date, harvest_date, process_date, status } = req.body;
+  const db = await getDb();
+  db.run('UPDATE batches SET product_id=?, batch_no=?, quantity=?, fry_source=?, fry_date=?, harvest_date=?, process_date=?, status=?, updated_at=datetime(\'now\',\'localtime\') WHERE id=?', [product_id, batch_no, quantity || 0, fry_source || '', fry_date || '', harvest_date || '', process_date || '', status ?? 0, req.params.id]);
+  saveDb();
+  res.json({ ok: true });
+});
+
+app.delete('/trace/api/batches/:id', auth, async (req, res) => {
+  const db = await getDb();
+  db.run('DELETE FROM batches WHERE id=?', [req.params.id]);
+  saveDb();
+  res.json({ ok: true });
+});
+
+// ==================== Trace Nodes CRUD ====================
+app.get('/trace/api/nodes/:batchId', auth, async (req, res) => {
+  const db = await getDb();
+  const r = db.exec('SELECT t.*, n.name as type_name, n.icon as type_icon FROM trace_nodes t JOIN trace_node_types n ON t.node_code = n.code WHERE t.batch_id = ? ORDER BY t.sort_order, t.id', [req.params.batchId]);
+  const items = [];
+  if (r.length && r[0].values.length) {
+    const cols = r[0].columns;
+    for (const v of r[0].values) {
+      const o = {};
+      cols.forEach((c, i) => o[c] = v[i]);
+      // Get media
+      const mr = db.exec('SELECT * FROM trace_media WHERE trace_node_id = ? ORDER BY sort_order, id', [o.id]);
+      o.media = [];
+      if (mr.length && mr[0].values.length) {
+        const mCols = mr[0].columns;
+        for (const mv of mr[0].values) {
+          const m = {};
+          mCols.forEach((c, i) => m[c] = mv[i]);
+          o.media.push(m);
+        }
+      }
+      items.push(o);
+    }
+  }
+  res.json(items);
+});
+
+app.get('/trace/api/nodes_debug', (req, res) => {
+  const db = require('./db');
+  res.json({ok: true, msg: 'diagnostic route works'});
+});
+
+app.post('/trace/api/nodes', auth, async (req, res) => {
+  console.log('POST_NODES_HANDLER CALLED');
+  const { batch_id, node_code, title, content, sort_order } = req.body;
+  const db = await getDb();
+  const r = db.run('INSERT INTO trace_nodes (batch_id, node_code, title, content, sort_order) VALUES (?,?,?,?,?)', [batch_id, node_code, title || '', content || '', sort_order || 0]);
+  const nodeId = Number(db.exec('SELECT last_insert_rowid() as id')[0].values[0][0]);
+  saveDb();
+  res.json({ ok: true, id: nodeId });
+});
+
+app.put('/trace/api/nodes/:id', auth, async (req, res) => {
+  const { title, content, sort_order } = req.body;
+  const db = await getDb();
+  db.run('UPDATE trace_nodes SET title=?, content=?, sort_order=?, updated_at=datetime(\'now\',\'localtime\') WHERE id=?', [title || '', content || '', sort_order || 0, req.params.id]);
+  saveDb();
+  res.json({ ok: true });
+});
+
+app.delete('/trace/api/nodes/:id', auth, async (req, res) => {
+  const db = await getDb();
+  db.run('DELETE FROM trace_nodes WHERE id=?', [req.params.id]);
+  saveDb();
+  res.json({ ok: true });
+});
+
+// ==================== Trace Node Types ====================
+app.get('/trace/api/node-types', auth, async (req, res) => {
+  const db = await getDb();
+  const r = db.exec('SELECT * FROM trace_node_types ORDER BY sort_order');
+  const items = [];
+  if (r.length && r[0].values.length) {
+    const cols = r[0].columns;
+    for (const v of r[0].values) {
+      const o = {};
+      cols.forEach((c, i) => o[c] = v[i]);
+      items.push(o);
+    }
+  }
+  res.json(items);
+});
+
+// ==================== SN Codes ====================
+app.get('/trace/api/sncodes', auth, async (req, res) => {
+  const db = await getDb();
+  const r = db.exec('SELECT s.*, p.name as product_name, b.batch_no FROM sn_codes s JOIN products p ON s.product_id = p.id JOIN batches b ON s.batch_id = b.id ORDER BY s.id DESC LIMIT 200');
+  const items = [];
+  if (r.length && r[0].values.length) {
+    const cols = r[0].columns;
+    for (const v of r[0].values) {
+      const o = {};
+      cols.forEach((c, i) => o[c] = v[i]);
+      items.push(o);
+    }
+  }
+  res.json(items);
+});
+
+app.post('/trace/api/sncodes/generate', auth, async (req, res) => {
+  const { product_id, batch_id, count } = req.body;
+  const num = Math.min(count || 10, 1000);
+  const db = await getDb();
+  const prefix = 'TDXH';
+  const year = String(new Date().getFullYear()).slice(2);
+  const prodCode = (String(product_id)).padStart(2, '0');
+  const created = [];
+  
+  for (let i = 0; i < num; i++) {
+    const rand = String(Math.floor(Math.random() * 9999)).padStart(4, '0');
+    const seq = String(Date.now() % 100000 + i).padStart(5, '0');
+    const sn = `${prefix}${year}${prodCode}${seq}${rand}`;
+    try {
+      db.run('INSERT INTO sn_codes (sn, product_id, batch_id) VALUES (?,?,?)', [sn, product_id, batch_id]);
+      created.push(sn);
+    } catch (e) { continue; }
+  }
+  saveDb();
+  res.json({ ok: true, count: created.length, sncodes: created });
+});
+
+app.put('/trace/api/sncodes/:id/status', auth, async (req, res) => {
+  const { status } = req.body;
+  const db = await getDb();
+  db.run('UPDATE sn_codes SET status=? WHERE id=?', [status, req.params.id]);
+  saveDb();
+  res.json({ ok: true });
+});
+
+// ==================== Statistics ====================
+app.get('/trace/api/stats', auth, async (req, res) => {
+  const db = await getDb();
+  const totalSN = db.exec('SELECT COUNT(*) as c FROM sn_codes')[0].values[0][0];
+  const totalQuery = db.exec('SELECT COUNT(*) as c FROM query_logs')[0].values[0][0];
+  const todayQuery = db.exec("SELECT COUNT(*) as c FROM query_logs WHERE created_at >= datetime('now','-1 day')")[0].values[0][0];
+  const totalProducts = db.exec('SELECT COUNT(*) as c FROM products')[0].values[0][0];
+  const totalBatches = db.exec('SELECT COUNT(*) as c FROM batches')[0].values[0][0];
+  res.json({ totalSN, totalQuery, todayQuery, totalProducts, totalBatches });
+});
+
+
+// ==================== Node Media ====================
+app.post('/trace/api/nodes/:id/media', auth, async (req, res) => {
+  const { media } = req.body;
+  if (!media || !Array.isArray(media)) return res.json({ ok: true });
+  const db = await getDb();
+  for (const m of media) {
+    db.run('INSERT INTO trace_media (trace_node_id, media_type, url, description, sort_order) VALUES (?,?,?,?,?)',
+      [req.params.id, m.media_type || 'image', m.url, m.description || '', m.sort_order || 0]);
+  }
+  saveDb();
+  res.json({ ok: true, count: media.length });
+});
+
+// ==================== Start ====================
+async function start() {
+  await initDb();
+  app.listen(PORT, () => {
+    console.log(`Trace backend running at http://localhost:${PORT}/trace`);
+    console.log(`Admin: http://localhost:${PORT}/trace/admin`);
+  });
+}
+
+start();

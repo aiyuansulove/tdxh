@@ -37,3 +37,5 @@ public/
 *.txt
 ghp_*
 token*
+trace-backend/node_modules/
+trace-backend/data/
