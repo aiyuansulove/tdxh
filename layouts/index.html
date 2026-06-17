@@ -87,9 +87,9 @@
     <p class="section-subtitle reveal">{{ $origin.subtitle }}</p>
     <div class="divider-gold reveal"></div>
 
-    <div class="origin-compact">
-        <!-- Left: Text + Stats + Trace -->
-        <div class="origin-left reveal">
+    <div class="origin-wide">
+        <!-- Top: Text + Circular Logo -->
+        <div class="origin-top-row reveal">
             <div class="origin-text-scroll">
                 <div class="origin-text">
                     {{ range $origin.paragraphs }}
@@ -97,29 +97,31 @@
                     {{ end }}
                 </div>
             </div>
-            <div class="origin-stats-box">
-                <div class="origin-stats-row">
-                    {{ range $origin.stats }}
-                    <div class="stat-item">
-                        <span class="stat-item-num">{{ .num }}</span>
-                        <span class="stat-item-label">{{ .label }}</span>
-                    </div>
-                    {{ end }}
-                </div>
-            </div>
-            <div class="trace-compact">
-                <div class="trace-box">
-                    <input type="text" class="trace-input" id="traceSnInput" placeholder="{{ $origin.trace.placeholder }}" maxlength="19">
-                    <button class="trace-btn" id="traceSnBtn">{{ $origin.trace.buttonText }}</button>
-                </div>
-                <p class="trace-tip">{{ $origin.trace.tip }}</p>
+            <div class="origin-brand">
+                <img class="origin-logo" src="{{ $origin.image }}" alt="天地鲟鳇">
+                <div class="origin-caption">{{ $origin.caption }}</div>
             </div>
         </div>
 
-        <!-- Right: Image -->
-        <div class="origin-right reveal">
-            <img class="origin-image" src="{{ $origin.image }}" alt="天地鲟鳇" loading="lazy">
-            <div class="origin-image-caption">{{ $origin.caption }}</div>
+        <!-- Middle: Stats Box (full width) -->
+        <div class="origin-stats-box reveal">
+            <div class="origin-stats-row">
+                {{ range $origin.stats }}
+                <div class="stat-item">
+                    <span class="stat-item-num">{{ .num }}</span>
+                    <span class="stat-item-label">{{ .label }}</span>
+                </div>
+                {{ end }}
+            </div>
+        </div>
+
+        <!-- Bottom: Trace Input (full width) -->
+        <div class="trace-row reveal">
+            <div class="trace-box">
+                <input type="text" class="trace-input" id="traceSnInput" placeholder="{{ $origin.trace.placeholder }}" maxlength="19">
+                <button class="trace-btn" id="traceSnBtn">{{ $origin.trace.buttonText }}</button>
+            </div>
+            <p class="trace-tip">{{ $origin.trace.tip }}</p>
         </div>
     </div>
 
