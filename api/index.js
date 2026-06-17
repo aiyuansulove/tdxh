@@ -58,8 +58,8 @@ module.exports = async (req, res) => {
     // Admin page
     if (pathname === '/trace/admin' && method === 'GET') {
       try {
-        const p = path.join(__dirname, '..', 'public', 'admin', 'index.html');
-        const c = fs.readFileSync(p, 'utf8');
+        const p = path.join(__dirname, 'admin.html');
+        const c = fs.readFileSync(path.join(__dirname, 'admin.html'), 'utf8');
         return html(res, c);
       } catch { return html(res, '<h1>Admin page not found</h1>'); }
     }
@@ -83,8 +83,8 @@ module.exports = async (req, res) => {
       const sn = snMatch[1];
       if (sn === 'admin') {
         try {
-          const p = path.join(__dirname, '..', 'public', 'admin', 'index.html');
-          return html(res, fs.readFileSync(p, 'utf8'));
+          const p = path.join(__dirname, 'admin.html');
+          return html(res, fs.readFileSync(path.join(__dirname, 'admin.html'), 'utf8'));
         } catch { return html(res, '<h1>Admin</h1>'); }
       }
 
