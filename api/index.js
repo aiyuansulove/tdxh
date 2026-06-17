@@ -44,7 +44,7 @@ function traceResultHTML(data, error) {
     <h1 style="color:#f0eadb;font-weight:300;text-align:center">天地鲟鳇 · 产品溯源</h1>
     <div class="status"><div class="sn">${data.sn}</div><div style="color:#2ecc71;font-size:1.1rem">✅ 正品验证通过</div><div style="color:#5a5550;font-size:.8rem">查询 ${data.query_count} 次</div></div>
     <div class="card"><h3 style="color:#f0eadb">${data.product_name||''}</h3><div class="gold">${data.spec||''}</div></div>
-    ${data.nodes ? `<div style="text-align:center;color:#C9A96E;margin-bottom:16px">溯源时间线</div><div class="tl">${data.nodes.map(n => `<div class="tl-item"><div class="tl-dot">${n.icon||''}</div><div class="tl-title">${n.title||n.type||''}</div><div style="color:#8a8578;font-size:.85rem">${n.content||''}</div></div>`).join('')}</div>` : ''}
+    ${data.nodes ? `<div style="text-align:center;color:#C9A96E;margin-bottom:16px">溯源时间线</div><div class="tl">${data.nodes.map(n => `<div class="tl-item"><div class="tl-dot">${n.icon||''}</div><div class="tl-title">${n.title||n.type||''}</div><div style="color:#8a8578;font-size:.85rem">${n.content||''}</div>${(n.media||[]).filter(m=>m.media_type!=='video').map(m=>'<img src="'+m.url+'" style="max-width:100%;max-height:200px;margin-top:8px;border-radius:2px" onerror="this.style.display=\"none\"">').join('')}</div>`).join('')}</div>` : ''}
     <div style="text-align:center;padding:32px 0;border-top:1px solid rgba(201,169,110,.08);margin-top:32px"><a href="https://tdxh01.xyz" style="color:#C9A96E;text-decoration:none;font-size:.8rem">天地鲟鳇 官方网站</a></div>
   </body></html>`;
 }
@@ -107,7 +107,7 @@ module.exports = async (req, res) => {
       const result = {
         sn: data.sn, query_count: (data.query_count||0)+1,
         product_name: data.products?.name||'', spec: data.products?.spec||'', price: data.products?.price||'',
-        nodes: (nodeRows||[]).map(n => ({ icon: typeMap[n.node_code]?.icon||'', title: n.title||typeMap[n.node_code]?.name||'', content: n.content }))
+        nodes: (nodeRows||[]).map(n => ({ icon: typeMap[n.node_code]?.icon||'', title: n.title||typeMap[n.node_code]?.name||'', content: n.content, media: (n.trace_media||[]).map(m => ({ url: m.url, media_type: m.media_type })) }))
       };
       return html(res, traceResultHTML(result, null));
     }
