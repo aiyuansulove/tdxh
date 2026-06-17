@@ -86,36 +86,37 @@
     <h2 class="section-title reveal">{{ $origin.title }}</h2>
     <p class="section-subtitle reveal">{{ $origin.subtitle }}</p>
     <div class="divider-gold reveal"></div>
-    <div class="origin-layout">
-        <div class="origin-text reveal">
-            {{ range $origin.paragraphs }}
-            <p>{{ . }}</p>
-            {{ end }}
+
+    <div class="origin-compact">
+        <!-- Left: Text + Stats + Trace -->
+        <div class="origin-left reveal">
+            <div class="origin-text">
+                {{ range $origin.paragraphs }}
+                <p>{{ . }}</p>
+                {{ end }}
+            </div>
+            <div class="origin-stats-row">
+                {{ range $origin.stats }}
+                <div class="stat-item">
+                    <span class="stat-item-num">{{ .num }}</span>
+                    <span class="stat-item-label">{{ .label }}</span>
+                </div>
+                {{ end }}
+            </div>
+            <div class="trace-compact">
+                <div class="trace-box">
+                    <input type="text" class="trace-input" id="traceSnInput" placeholder="{{ $origin.trace.placeholder }}" maxlength="19">
+                    <button class="trace-btn" id="traceSnBtn">{{ $origin.trace.buttonText }}</button>
+                </div>
+                <p class="trace-tip">{{ $origin.trace.tip }}</p>
+            </div>
         </div>
-        <div class="origin-image-wrap reveal">
+
+        <!-- Right: Image -->
+        <div class="origin-right reveal">
             <img class="origin-image" src="{{ $origin.image }}" alt="天地鲟鳇" loading="lazy">
             <div class="origin-image-caption">{{ $origin.caption }}</div>
         </div>
-    </div>
-    <div class="origin-stats">
-        {{ range $origin.stats }}
-        <div class="stat-card reveal">
-            <div class="stat-num">{{ .num }}</div>
-            <div class="stat-label">{{ .label }}</div>
-            <div class="stat-sublabel">{{ .sublabel }}</div>
-        </div>
-        {{ end }}
-    </div>
-
-    <!-- Trace Query -->
-    <div class="trace-section reveal">
-        <div class="trace-divider"></div>
-        <h3 class="trace-title">{{ $origin.trace.title }}</h3>
-        <div class="trace-box">
-            <input type="text" class="trace-input" id="traceSnInput" placeholder="{{ $origin.trace.placeholder }}" maxlength="19">
-            <button class="trace-btn" id="traceSnBtn">{{ $origin.trace.buttonText }}</button>
-        </div>
-        <p class="trace-tip">{{ $origin.trace.tip }}</p>
     </div>
 
     <script>
