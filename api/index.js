@@ -112,6 +112,16 @@ module.exports = async (req, res) => {
 
     // ==================== API Routes ====================
 
+    // Debug
+    if (pathname === '/trace/api/debug/login' && method === 'POST') {
+      const body = await parseBody(req);
+      const { data } = await supabase.from('admins').select('*').eq('username', body.username);
+      if (!data?.length) return json(res, { error: '用户不存在', received_username: body.username });
+      const stored = data[0].password || '';
+      const match = bcrypt.compareSync(body.password || '', stored);
+      return json(res, { exists: true, password_match: match, stored_prefix: stored.slice(0, 10) });
+    }
+
     // Login
     if (pathname === '/trace/api/admin/login' && method === 'POST') {
       const body = await parseBody(req);
