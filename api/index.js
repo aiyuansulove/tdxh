@@ -241,6 +241,12 @@ module.exports = async (req, res) => {
     // Login
     if (pathname === '/trace/api/admin/login' && method === 'POST') {
       const body = await parseBody(req);
+      // Auto-seed: if no admins exist at all, create default admin
+      const { count } = await supabase.from('admins').select('*', { count: 'exact', head: true });
+      if (count === 0) {
+        const hash = '$2b$10$CWRwAK/5r9OMdZUx0xNzgeftU0Q.NM/dLBmXq.sTkHgTjI8oX6WIq';
+        await supabase.from('admins').insert([{ username: 'admin', password: hash, nickname: '管理员', role: 'super', status: 1 }]);
+      }
       const { data: admins } = await supabase.from('admins').select('*').eq('username', body.username).eq('status', 1);
       if (!admins?.length || !bcrypt.compareSync(body.password, admins[0].password))
         return json(res, { error: '用户名或密码错误' }, 401);
