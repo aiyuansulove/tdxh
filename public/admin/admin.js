@@ -161,9 +161,11 @@ function toast(msg, type='info', t=3500){
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), t);
 }
 
-// ===== AI 生图（ComfyUI 本地） =====
-const AI_ENDPOINT = 'http://127.0.0.1:3457/generate';
-const AI_HEALTH = 'http://127.0.0.1:3457/health';
+// ===== AI 生图（仅本地后台可用） =====
+// AI 生图需要本地的 ComfyUI，请通过 http://127.0.0.1:3457/admin/ 访问后台
+const AI_ENDPOINT = '/api/generate';
+const AI_HEALTH = '/api/health';
+const IS_LOCAL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
 
 function openAIImageGen(){
   showEditor('ai_image', 'AI 图像生成');
@@ -171,7 +173,7 @@ function openAIImageGen(){
   $('commitMsg').style.display = 'none';
 
   const form = document.getElementById('sectionForm');
-  form.innerHTML = `
+  form.innerHTML = IS_LOCAL ? `
     <style>
       .ai-gen-container { max-width: 800px; margin: 0 auto; }
       .ai-gen-container textarea { width:100%; padding:12px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:.95em; outline:none; font-family:inherit; resize:vertical; min-height:80px; line-height:1.6; }
@@ -201,10 +203,19 @@ function openAIImageGen(){
         <button class="btn btn-outline" onclick="downloadAIImage()">💾 下载图片</button>
       </div>
     </div>
-  `;
+  ` : `<div class="ai-gen-container" style="text-align:center;padding:40px 20px">
+    <p style="color:var(--gold);font-size:1.1em;margin-bottom:12px">🤖 AI 生图需要本地后台</p>
+    <p style="color:var(--text2);font-size:.85em;line-height:1.8">
+      请在终端执行：<br>
+      <code style="background:var(--bg2);padding:4px 10px;border-radius:4px;color:var(--gold)">node proxy-comfy.js</code><br><br>
+      然后访问<br>
+      <a href="http://127.0.0.1:3457/admin/" style="color:var(--gold)">http://127.0.0.1:3457/admin/</a><br><br>
+      使用 AI 生图功能
+    </p>
+  </div>`;
 
-  document.getElementById('aiGenBtn').addEventListener('click', generateAIImage);
-  document.getElementById('aiPrompt').addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter') generateAIImage(); });
+  document.getElementById('aiGenBtn')?.addEventListener('click', generateAIImage);
+  document.getElementById('aiPrompt')?.addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter') generateAIImage(); });
 }
 
 let lastAIImageData = '';
@@ -655,11 +666,15 @@ function renderField(f,data,isArr,idx,parentKey){
 
 // ===== AI 生图 → 直接填充图片字段 =====
 async function handleAIGenForField(btn){
-  const key=btn.dataset.key;        // 图片字段名
-  const idx=btn.dataset.idx;        // 数组索引
-  const arrItem=btn.dataset.arrItem; // 数组内索引
+  if (!IS_LOCAL) {
+    toast('⚠️ AI 生图仅限本地后台使用 (http://127.0.0.1:3457/admin/)','error');
+    return;
+  }
 
-  // 找到目标输入框
+  const key=btn.dataset.key;
+  const idx=btn.dataset.idx;
+  const arrItem=btn.dataset.arrItem;
+
   let targetInput;
   if (idx !== undefined || arrItem !== undefined) {
     const i = idx || arrItem;
@@ -668,18 +683,6 @@ async function handleAIGenForField(btn){
     targetInput = document.querySelector(`input[data-key="${key}"]:not([data-idx])`);
   }
   if (!targetInput) { toast('⚠️ 找不到图片字段','error'); return; }
-
-  // 先检查 ComfyUI 代理是否在线
-  let healthOk = false;
-  try {
-    const hRes = await fetch(AI_HEALTH);
-    const hData = await hRes.json();
-    if (hData.ok) healthOk = true;
-  } catch(e) {}
-  if (!healthOk) {
-    toast('⚠️ ComfyUI 代理未运行: node proxy-comfy.js','error');
-    return;
-  }
 
   const userPrompt = prompt("🎨 输入AI生图的画面描述：", "");
   if (!userPrompt || !userPrompt.trim()) return;

@@ -9,7 +9,6 @@
  */
 
 const CFG = { owner:'aiyuansulove', repo:'tdxh', branch:'master', api:'https://api.github.com' };
-const AI_API_KEY = 'sk-VWw0MUjMAE7NqHVlSn97rCl0JUAxfdWiTp9BS72jm36InupP';
 let TOKEN = localStorage.getItem('github_token') || '';
 
 const SECTIONS = [
@@ -161,9 +160,11 @@ function toast(msg, type='info', t=3500){
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), t);
 }
 
-// ===== AI 生图（ComfyUI 本地） =====
-const AI_ENDPOINT = 'http://127.0.0.1:3457/generate';
-const AI_HEALTH = 'http://127.0.0.1:3457/health';
+// ===== AI 生图（仅本地后台可用） =====
+// AI 生图需要本地的 ComfyUI，请通过 http://127.0.0.1:3457/admin/ 访问后台
+const AI_ENDPOINT = '/api/generate';
+const AI_HEALTH = '/api/health';
+const IS_LOCAL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
 
 function openAIImageGen(){
   showEditor('ai_image', 'AI 图像生成');
@@ -171,7 +172,7 @@ function openAIImageGen(){
   $('commitMsg').style.display = 'none';
 
   const form = document.getElementById('sectionForm');
-  form.innerHTML = `
+  form.innerHTML = IS_LOCAL ? `
     <style>
       .ai-gen-container { max-width: 800px; margin: 0 auto; }
       .ai-gen-container textarea { width:100%; padding:12px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:.95em; outline:none; font-family:inherit; resize:vertical; min-height:80px; line-height:1.6; }
@@ -201,10 +202,19 @@ function openAIImageGen(){
         <button class="btn btn-outline" onclick="downloadAIImage()">💾 下载图片</button>
       </div>
     </div>
-  `;
+  ` : `<div class="ai-gen-container" style="text-align:center;padding:40px 20px">
+    <p style="color:var(--gold);font-size:1.1em;margin-bottom:12px">🤖 AI 生图需要本地后台</p>
+    <p style="color:var(--text2);font-size:.85em;line-height:1.8">
+      请在终端执行：<br>
+      <code style="background:var(--bg2);padding:4px 10px;border-radius:4px;color:var(--gold)">node proxy-comfy.js</code><br><br>
+      然后访问<br>
+      <a href="http://127.0.0.1:3457/admin/" style="color:var(--gold)">http://127.0.0.1:3457/admin/</a><br><br>
+      使用 AI 生图功能
+    </p>
+  </div>`;
 
-  document.getElementById('aiGenBtn').addEventListener('click', generateAIImage);
-  document.getElementById('aiPrompt').addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter') generateAIImage(); });
+  document.getElementById('aiGenBtn')?.addEventListener('click', generateAIImage);
+  document.getElementById('aiPrompt')?.addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter') generateAIImage(); });
 }
 
 let lastAIImageData = '';
@@ -222,19 +232,6 @@ async function generateAIImage(){
   resultDiv.innerHTML = '<span class="placeholder"><span class="spinner"></span> 正在生成图片...</span>';
 
   try {
-    // 先检查 ComfyUI 代理是否在线
-    let healthOk = false;
-    try {
-      const hRes = await fetch(AI_HEALTH);
-      const hData = await hRes.json();
-      if (hData.ok) healthOk = true;
-    } catch(e) {}
-
-    if (!healthOk) {
-      throw new Error('ComfyUI 代理未运行。请在终端执行: node proxy-comfy.js');
-    }
-
-    // 调用 ComfyUI 代理
     const res = await fetch(AI_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -285,308 +282,58 @@ function downloadAIImage(){
 
 // ===== 侧边栏 =====
 function renderSidebar(){
-  const nav=document.getElementById('sidebarNav');
-  const groups={};
-  SECTIONS.forEach(s=>{ if(!groups[s.group]) groups[s.group]=[]; groups[s.group].push(s); });
-  let html='';
-  Object.entries(groups).forEach(([g,items])=>{
-    html+=`<div class="nav-group"><div class="nav-group-title">${g}</div>`;
-    items.forEach(s=>{ html+=`<button class="nav-item" data-id="${s.id}" data-file="${s.file}" ${s.isFolder?'data-folder="1"':''}>${s.label}</button>`; });
-    html+=`</div>`;
+  const nav=$('sidebarNav'); if(!nav) return;
+  let html='', lastGroup='';
+  SECTIONS.forEach(s=>{
+    if(s.group&&s.group!==lastGroup){ lastGroup=s.group; html+=`<div class="sidebar-group">${s.group}</div>`; }
+    html+=`<button onclick="openSection('${s.id}')" data-section="${s.id}">${s.label}</button>`;
   });
   nav.innerHTML=html;
-  nav.querySelectorAll('.nav-item').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      nav.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      const id=btn.dataset.id, file=btn.dataset.file;
-      if(id==='news') openNewsManager();
-      else if(id==='about') openArticleEditor(file);
-      else if(id==='ai_image') openAIImageGen();
-      else openSectionEditor(id, file);
-    });
-  });
 }
 
-// ===== 板块编辑器 =====
-async function openSectionEditor(id, file){
-  try {
-    const schema=SCHEMA[id];
-    if(!schema){ toast('未知板块','error'); return; }
-    showEditor(id, file);
-    const f = await api.get(file);
-    const data = JSON.parse(f.content);
-    state.sha = f.sha; state.data = data; state.changed = false;
-    renderForm(id, data);
-  } catch(e){
-    toast('❌ 加载失败：' + e.message, 'error');
-    console.error(e);
-  }
-}
-
-// ===== 文章编辑器 =====
-let quillArticle = null;  // Quill 文章编辑器实例
-
-async function openArticleEditor(file){
-  try {
-    showEditor('article', file);
-    const f = await api.get(file);
-    const parsed = parseFM(f.content);
-    articleState = { sha:f.sha, path:file, parsed };
-    const form = document.getElementById('sectionForm');
-    form.innerHTML = `
-      <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-        <button id="artBackBtn" class="btn btn-outline" onclick="openNewsManager()">← 返回列表</button>
-        <button id="artDeleteBtn" class="btn btn-danger" style="margin-left:auto">🗑️ 删除本文</button>
-      </div>
-      <style>
-      <style>
-        #quillArticleContainer { display:flex; flex-direction:column; height:500px; border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; }
-        #quillArticleContainer .ql-toolbar { background:var(--bg-sidebar); border:none; border-bottom:1px solid var(--border); flex-shrink:0; }
-        #quillArticleContainer .ql-container { flex:1; overflow-y:auto; background:var(--bg-dark); font-family:"PingFang SC","Microsoft YaHei",sans-serif; font-size:1em; color:var(--text); }
-        #quillArticleContainer .ql-container .ql-editor { min-height:300px; padding:20px; line-height:1.9; color:var(--text-primary); }
-        #quillArticleContainer .ql-editor.ql-blank::before { color:var(--text-muted); font-style:normal; left:20px; }
-        #quillArticleContainer .ql-editor h1 { color:var(--gold); font-size:1.6em; }
-        #quillArticleContainer .ql-editor h2 { color:var(--gold-light); font-size:1.35em; }
-        #quillArticleContainer .ql-editor strong { color:var(--gold); }
-        #quillArticleContainer .ql-editor blockquote { border-left:3px solid var(--gold); padding-left:16px; color:var(--text2); }
-        #quillArticleContainer .ql-editor img { max-width:100%; border-radius:6px; }
-        #quillArticleContainer .ql-snow .ql-stroke { stroke:var(--text2); }
-        #quillArticleContainer .ql-snow .ql-fill { fill:var(--text2); }
-        #quillArticleContainer .ql-snow .ql-picker-label { color:var(--text2); }
-        #quillArticleContainer .ql-snow .ql-picker-options { background:var(--bg-card); border-color:var(--border); }
-        #quillArticleContainer .ql-snow .ql-picker-item { color:var(--text); }
-        #quillArticleContainer .ql-toolbar button:hover .ql-stroke,
-        #quillArticleContainer .ql-toolbar button.ql-active .ql-stroke { stroke:var(--gold); }
-        #quillArticleContainer .ql-toolbar button:hover .ql-fill,
-        #quillArticleContainer .ql-toolbar button.ql-active .ql-fill { fill:var(--gold); }
-        #quillArticleContainer .ql-toolbar button:hover,
-        #quillArticleContainer .ql-toolbar button.ql-active { color:var(--gold); }
-      </style>
-      <div class="form-group"><label class="form-label">标题</label><input type="text" id="artTitle" class="form-input" value="${esc(parsed.title)}"></div>
-      <div class="form-group"><label class="form-label">日期</label><input type="date" id="artDate" class="form-input" value="${parsed.date}"></div>
-      <div class="form-group"><label class="form-label">正文内容</label>
-        <div id="quillArticleContainer"><div id="quillArticleEditor"></div></div>
-        <div class="form-hint">支持文字样式、颜色、图片上传、链接等</div></div>`;
-    state.changed=false;
-    $('commitMsg').value = '更新 ' + file.split('/').pop();
-    $('editorSaveBtn').onclick = saveArticle;
-
-    // 初始化 Quill 编辑器
-    if (quillArticle) { quillArticle = null; }
-    // 确保编辑器的容器存在
-    setTimeout(() => {
-      const editorEl = document.getElementById('quillArticleEditor');
-      if (!editorEl) return;
-      
-      // 清理旧的 Quill 实例
-      const container = document.getElementById('quillArticleContainer');
-      const oldToolbar = container.querySelector('.ql-toolbar');
-      if (oldToolbar) oldToolbar.remove();
-      
-      if (typeof Quill === 'undefined') { toast('⚠️ 富文本编辑器加载中，请稍后编辑','loading',5000); return; } quillArticle = new Quill('#quillArticleEditor', {
-        theme: 'snow',
-        modules: {
-          toolbar: [
-            [{ 'header': [1, 2, 3, false] }],
-            ['bold', 'italic', 'underline', 'strike'],
-            [{ 'color': [] }, { 'background': [] }],
-            [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-            ['blockquote', 'code-block'],
-            [{ 'align': [] }],
-            [{ 'script': 'sub'}, { 'script': 'super' }],
-            [{ 'indent': '-1'}, { 'indent': '+1' }],
-            ['link', 'image'],
-            ['clean'],
-          ],
-        },
-        placeholder: '在此输入新闻内容...',
-      });
-
-      // 填入已有内容
-      const body = parsed.body || '';
-      if (body.includes('<') && body.includes('>')) {
-        quillArticle.root.innerHTML = body;
-      } else if (body.trim()) {
-        quillArticle.setText('');
-        quillArticle.root.innerHTML = body.replace(/\n/g, '<br>');
-      }
-
-      // 图片上传处理
-      quillArticle.getModule('toolbar').addHandler('image', () => {
-        $('imageFileInput').click();
-      });
-
-      // 内容变化标记
-      quillArticle.on('text-change', () => { state.changed = true; });
-
-      // 监听到图片上传完成自动插入
-      const origUploadCb = window._quillImageCallback;
-      window._quillImageCallback = (url) => {
-        if (quillArticle) {
-          const range = quillArticle.getSelection(true);
-          quillArticle.insertEmbed(range.index, 'image', url);
-          quillArticle.setSelection(range.index + 1);
-        }
-      };
-    }, 50);
-
-    // 绑定删除按钮
-    setTimeout(() => {
-      const delBtn = document.getElementById('artDeleteBtn');
-      if (delBtn) delBtn.onclick = () => deleteArticle(file);
-    }, 100);
-
-  } catch(e){ toast('❌ 加载失败：'+e.message, 'error'); }
-}
-
-async function saveArticle(){
-  if(!articleState) return;
-  const title = $('artTitle').value.trim() || '无标题';
-  const date = $('artDate').value || new Date().toISOString().split('T')[0];
-  // 从 Quill 获取 HTML 内容
-  const body = (quillArticle && quillArticle.root) 
-    ? quillArticle.root.innerHTML 
-    : ($('artBody') ? $('artBody').value : '');
-  const fm = {...articleState.parsed.frontMatter, title, date};
-  const content = '---\n' + Object.entries(fm).map(([k,v])=>{
-    const q = v.includes(':')||v.includes('#')||/\s/.test(v);
-    return `${k}: ${q?'"'+v+'"':v}`;
-  }).join('\n') + '\n---\n\n' + body.trim() + '\n';
-  const msg = $('commitMsg').value.trim() || '更新 '+articleState.path.split('/').pop();
-  const btn=$('editorSaveBtn'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 保存中...';
-  try {
-    const r = await api.put(articleState.path, content, msg, articleState.sha);
-    articleState.sha = r.content.sha; state.changed=false;
-    toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站更新', 'success');
-  } catch(e){ toast('❌ 保存失败：'+e.message,'error'); }
-  finally { btn.disabled=false; btn.innerHTML='💾 保存'; }
-}
-
-// ===== 新闻列表 =====
-async function openNewsManager(){
-  try {
-    showEditor('news', 'content/news/');
-    $('editorSaveBtn').style.display='none'; $('commitMsg').style.display='none';
-    const files = await api.list('content/news');
-    const mdFiles = files.filter(f=>f.name.endsWith('.md')&&f.name!=='index.md');
-    const form=$('sectionForm');
-    if(mdFiles.length===0){ form.innerHTML='<p class="loading-text">暂无新闻文章</p>'; return; }
-    const items = await Promise.all(mdFiles.sort((a,b)=>a.name.localeCompare(b.name)).map(async f=>{
-      try{ const d=await api.get(f.path); const p=parseFM(d.content); return {path:f.path, title:p.title||f.name, date:p.date||''}; }
-      catch{ return {path:f.path, title:f.name, date:''}; }
-    }));
-    form.innerHTML = `
-      <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">
-        <span style="color:var(--text2);font-size:.9em">共 ${items.length} 篇</span>
-        <button id="createNewsBtn" class="btn btn-primary btn-sm" style="margin-left:auto">+ 新建文章</button></div>
-      ${items.map(item=>`
-        <div class="form-array-item" style="cursor:pointer">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <div style="flex:1;cursor:pointer" onclick="openArticleEditor('${item.path}')">
-              <strong>${esc(item.title)}</strong><br>
-              <span style="font-size:.78em;color:var(--text3)">${item.path}${item.date?' · '+item.date:''}</span>
-            </div>
-            <button class="btn btn-danger btn-sm" style="flex-shrink:0" onclick="event.stopPropagation();deleteArticleFromList('${item.path}')">🗑️</button>
-          </div></div>`).join('')}`;
-    $('createNewsBtn').addEventListener('click', createNewsArticle);
-  } catch(e){ toast('❌ 加载失败：'+e.message,'error'); }
-}
-
-// ===== 删除文章 =====
-async function deleteArticle(path) {
-  if (!confirm('确定要删除这篇文章吗？此操作不可撤销。')) return;
-  const f = await api.get(path);
-  const btn = document.getElementById('artDeleteBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ 删除中...'; }
-  try {
-    await api.del(path, '删除: ' + path.split('/').pop(), f.sha);
-    toast('✅ 文章已删除！','success');
-    openNewsManager();
-  } catch(e) {
-    toast('❌ 删除失败：'+e.message,'error');
-    if (btn) { btn.disabled = false; btn.textContent = '🗑️ 删除本文'; }
-  }
-}
-
-async function deleteArticleFromList(path) {
-  if (!confirm('确定删除这篇文章吗？')) return;
-  const f = await api.get(path);
-  try {
-    await api.del(path, '删除: ' + path.split('/').pop(), f.sha);
-    toast('✅ 已删除','success');
-    openNewsManager();
-  } catch(e) { toast('❌ 删除失败：'+e.message,'error'); }
-}
-
-async function createNewsArticle(){
-  const title = prompt('请输入新闻标题：');
-  if(!title||!title.trim()) return;
-  const slug = title.trim().replace(/[^\w\u4e00-\u9fff\s-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'').toLowerCase()||'article-'+Date.now().toString(36);
-  const safe = /^[\u4e00-\u9fff-]+$/.test(slug)?'article-'+Date.now().toString(36):slug;
-  const date=new Date().toISOString().split('T')[0];
-  const path='content/news/'+safe+'.md';
-  const content=`---\ntitle: "${title.trim()}"\ndate: ${date}\n---\n\n<p>在此输入文章内容...</p>\n`;
-  try {
-    await api.create(path, content, '新建文章: '+title.trim());
-    toast('✅ 文章已创建！','success');
-    openNewsManager();
-    setTimeout(()=>openArticleEditor(path), 500);
-  } catch(e){ toast('❌ 创建失败：'+e.message,'error'); }
-}
-
-// ===== Front Matter =====
-function parseFM(raw){
-  const r={frontMatter:{},body:raw,title:'',date:''};
-  const m=raw.match(/^---\s*\n([\s\S]*?)\n---\s*\n{0,2}([\s\S]*)$/);
-  if(!m) return r;
-  r.body=m[2].trim();
-  m[1].split('\n').forEach(line=>{
-    const kv=line.match(/^(\w+):\s*(.+)$/);
-    if(kv){
-      let v=kv[2].trim();
-      if((v.startsWith('"')&&v.endsWith('"'))||(v.startsWith("'")&&v.endsWith("'"))) v=v.slice(1,-1);
-      r.frontMatter[kv[1]]=v;
-      if(kv[1]==='title') r.title=v;
-      if(kv[1]==='date') r.date=v.split('T')[0];
-    }
-  });
-  return r;
-}
-
-// ===== 编辑器面板 =====
-function showEditor(id, file){
-  $('welcomeScreen').style.display='none';
-  $('editorPanel').style.display='flex';
-  $('editorTitle').textContent = SECTIONS.find(s=>s.id===id)?.label||'编辑';
-  $('editorPath').textContent = file;
-  $('editorSaveBtn').style.display='';
-  $('commitMsg').style.display='';
-  $('commitMsg').value = '';
-  $('editorSaveBtn').onclick = saveSection;
-  const form = document.getElementById('sectionForm');
-  if(form) form.innerHTML = '<p class="loading-text"><span class="spinner"></span> 加载中...</p>';
+function openSection(id){
+  const section=SECTIONS.find(s=>s.id===id); if(!section) return;
+  // highlight
+  document.querySelectorAll('.sidebar-nav button').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`[data-section="${id}"]`); if(btn) btn.classList.add('active');
+  if(id==='ai_image'){ openAIImageGen(); return; }
+  $('editorSaveBtn').style.display = ''; $('commitMsg').style.display = '';
   state.editing=id; state.changed=false;
+  $('editorTitle').textContent=section.label;
+  $('editorPanel').style.display='block'; $('welcomeScreen').style.display='none';
+  $('sectionForm').innerHTML='<p style="color:var(--text3)">加载中...</p>';
+  (async()=>{
+    try{
+      const r=await api.get(section.file);
+      state.sha=r.sha; state.data=r.content;
+      let data; try{ data=JSON.parse(r.content); }catch{ data=null; }
+      renderForm(id,data);
+    }catch(e){
+      if(e.message.includes('[404]')||e.message.includes('[403]')){ renderForm(id,null); state.sha=null; }
+      else { toast('❌ 加载失败: '+e.message,'error'); $('sectionForm').innerHTML='<p style="color:var(--danger)">加载失败</p>'; }
+    }
+  })();
 }
 
-// ===== 更新图片预览 =====
-function updateImagePreview(input) {
-  if (!input) return;
-  const group = input.closest('.form-group');
-  if (!group) return;
-  const preview = group.querySelector('.form-image-preview');
-  if (!preview) {
-    // 如果没有预览元素（上传前），创建一个
-    const path = input.value;
-    if (!path) return;
-    const div = document.createElement('div');
-    div.className = 'form-image-preview';
-    div.innerHTML = `<img src="${esc(path)}" onerror="this.style.display='none'"><span class="form-image-path">${esc(path)}</span>`;
-    group.appendChild(div);
-  } else {
-    preview.querySelector('img').src = input.value;
-    preview.querySelector('.form-image-path').textContent = input.value;
-    preview.querySelector('img').style.display = '';
+// ===== 编辑面板切换 =====
+function showEditor(id, title){
+  $('editorTitle').textContent=title;
+  $('editorPanel').style.display='block';
+  $('welcomeScreen').style.display='none';
+  document.querySelectorAll('.sidebar-nav button').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`[data-section="${id}"]`);
+  if(btn) btn.classList.add('active');
+}
+
+// ===== 图片上传预览辅助 =====
+function updateImagePreview(input){
+  const container=input.closest('.form-group')||input.parentElement;
+  let preview=container.querySelector('.form-image-preview');
+  if(preview) preview.remove();
+  if(input.value){
+    const d=document.createElement('div'); d.className='form-image-preview';
+    d.innerHTML=`<img src="${esc(input.value)}" onerror="this.style.display='none'"><span class="form-image-path">${esc(input.value)}</span>`;
+    input.parentElement.insertBefore(d, input.nextSibling);
   }
 }
 
@@ -655,11 +402,15 @@ function renderField(f,data,isArr,idx,parentKey){
 
 // ===== AI 生图 → 直接填充图片字段 =====
 async function handleAIGenForField(btn){
-  const key=btn.dataset.key;        // 图片字段名
-  const idx=btn.dataset.idx;        // 数组索引
-  const arrItem=btn.dataset.arrItem; // 数组内索引
+  if (!IS_LOCAL) {
+    toast('⚠️ AI 生图仅限本地后台使用 (http://127.0.0.1:3457/admin/)','error');
+    return;
+  }
 
-  // 找到目标输入框
+  const key=btn.dataset.key;
+  const idx=btn.dataset.idx;
+  const arrItem=btn.dataset.arrItem;
+
   let targetInput;
   if (idx !== undefined || arrItem !== undefined) {
     const i = idx || arrItem;
@@ -668,18 +419,6 @@ async function handleAIGenForField(btn){
     targetInput = document.querySelector(`input[data-key="${key}"]:not([data-idx])`);
   }
   if (!targetInput) { toast('⚠️ 找不到图片字段','error'); return; }
-
-  // 先检查 ComfyUI 代理是否在线
-  let healthOk = false;
-  try {
-    const hRes = await fetch(AI_HEALTH);
-    const hData = await hRes.json();
-    if (hData.ok) healthOk = true;
-  } catch(e) {}
-  if (!healthOk) {
-    toast('⚠️ ComfyUI 代理未运行: node proxy-comfy.js','error');
-    return;
-  }
 
   const userPrompt = prompt("🎨 输入AI生图的画面描述：", "");
   if (!userPrompt || !userPrompt.trim()) return;
@@ -760,16 +499,14 @@ function removeArrayItem(sectionId,key,idx){
   const container=$((field.t==='strArr'?'sa-':'arr-')+key); if(!container) return;
   const items=container.querySelectorAll('.form-array-item');
   if(items[idx]){items[idx].remove();}
-  // 🔥 重新索引剩余的 items，防止 collectData 错位
+  // 重新索引剩余的 items，防止 collectData 错位
   container.querySelectorAll('.form-array-item').forEach((item,i)=>{
-    // 更新 data-idx
     const inputs = item.querySelectorAll('[data-idx]');
     if (inputs.length) {
       inputs.forEach(el => { el.dataset.idx = i; });
     } else {
       item.dataset.idx = i;
     }
-    // 更新显示序号
     const label = item.querySelector('.form-array-item-idx');
     if (label) label.textContent = `#${i+1}`;
   });
@@ -788,7 +525,6 @@ function collectData(sectionId){
 }
 
 // ===== 保存 =====
-// 🔥 v4 修复：自动处理 SHA 冲突，保存前强制刷新 SHA，失败后自动重试
 async function saveSection(){
   const id=state.editing;
   if(!id){ toast('⚠️ 没有打开的文件','error'); return; }
@@ -800,15 +536,12 @@ async function saveSection(){
   const msg = $('commitMsg').value.trim() || '更新首页: '+(section.label||id);
   const btn=$('editorSaveBtn'); btn.disabled=true; btn.innerHTML='<span class="spinner"></span> 保存中...';
 
-  // 最多重试 3 次
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      // 每次重试时都重新读取最新 SHA
       try {
         const latest = await api.get(section.file);
         state.sha = latest.sha;
       } catch(refreshErr) {
-        // 文件还不存在（首次创建）
         state.sha = null;
       }
 
@@ -822,13 +555,12 @@ async function saveSection(){
       state.changed=false;
       toast('✅ 保存成功！Vercel 正在自动构建，1-3 分钟后网站自动更新', 'success');
       btn.disabled=false; btn.innerHTML='💾 保存';
-      return; // 成功，退出
+      return;
       
     } catch(e) {
       const errMsg = e.message || '';
       console.error(`保存尝试 ${attempt+1}/3 失败:`, e);
       
-      // SHA 冲突或 HTTP 409/422 → 重试
       const isShaConflict = errMsg.includes('sha') || errMsg.includes('match') || 
                             errMsg.includes('[409]') || errMsg.includes('[422]');
       
@@ -837,7 +569,6 @@ async function saveSection(){
         continue;
       }
       
-      // 其他错误或者重试用完，报告错误
       toast('❌ 保存失败：' + errMsg, 'error');
       btn.disabled=false; btn.innerHTML='💾 保存';
       return;
@@ -874,7 +605,7 @@ function handleLogout(){
 }
 
 // ===== 初始化 =====
-function init(){ console.log("admin init start, loginBtn=", );
+function init(){ console.log("admin init start");
   try {
     $('loginBtn').addEventListener('click', handleLogin);
     $('tokenInput').addEventListener('keydown', e=>{ if(e.key==='Enter') handleLogin(); });

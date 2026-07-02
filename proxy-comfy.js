@@ -1,22 +1,45 @@
 /**
- * 天地鲟鳇 · ComfyUI 代理服务器
+ * 天地鲟鳇 · 本地后台 + ComfyUI 代理服务器
  * 
- * 在后台 AI 生图和本地 ComfyUI 之间做桥梁
+ * 提供两合一功能：
+ *   1. 本地 CMS 后台（同源，AI 生图可用）
+ *   2. ComfyUI 文生图代理
  * 
  * 启动: node proxy-comfy.js
- * 访问: http://localhost:3457
+ * 访问后台: http://localhost:3457/admin/
  * 
  * API:
- *   POST /generate  { prompt, negative, width, height, steps, cfg }
- *   GET  /health
+ *   POST /api/generate  { prompt, size }
+ *   GET  /api/health
  */
 
 const http = require('http');
-const https = require('https');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = 3457;
 const COMFY_HOST = '127.0.0.1';
 const COMFY_PORT = 8188;
+
+// 静态文件根目录
+const ADMIN_DIR = path.join(__dirname, 'public', 'admin');
+const IMAGES_DIR = path.join(__dirname, 'public', 'images');
+const STATIC_DIR = path.join(__dirname, 'static');
+
+// ===== MIME 类型 =====
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.js': 'application/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
+};
 
 // ===== ComfyUI API 调用 =====
 
@@ -130,7 +153,6 @@ async function waitForCompletion(promptId, timeoutMs = 120000) {
         const images = output?.['9']?.images;
         if (images && images.length > 0) {
           const img = images[0];
-          // 获取图片二进制
           const imgData = await comfyGetBinary(`/view?filename=${img.filename}&subfolder=${img.subfolder}&type=${img.type}`);
           return {
             filename: img.filename,
@@ -148,10 +170,39 @@ async function waitForCompletion(promptId, timeoutMs = 120000) {
   throw new Error('生成超时');
 }
 
-// ===== HTTP 代理服务器 =====
+// ===== 服务静态文件 =====
+
+function serveFile(res, filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = MIME[ext] || 'application/octet-stream';
+
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('404 Not Found: ' + filePath);
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-cache',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.end(data);
+  });
+}
+
+function serveAdminPage(res) {
+  const adminHtml = path.join(ADMIN_DIR, 'index.html');
+  serveFile(res, adminHtml);
+}
+
+// ===== 主服务器 =====
 
 const server = http.createServer(async (req, res) => {
-  // CORS 头 - 允许来自所有来源（admin 页面可能在 tdxh01.xyz 或本地）
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  let pathname = url.pathname;
+
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -162,10 +213,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  // ============ API 路由 ============
 
-  // GET /health
-  if (url.pathname === '/health' && req.method === 'GET') {
+  // GET /api/health
+  if (pathname === '/api/health' && req.method === 'GET') {
     try {
       const stats = await comfyRequest('GET', '/system_stats');
       res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -183,15 +234,13 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // POST /generate
-  if (url.pathname === '/generate' && req.method === 'POST') {
+  // POST /api/generate
+  if (pathname === '/api/generate' && req.method === 'POST') {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', async () => {
       try {
         const params = JSON.parse(body);
-
-        // 解析尺寸
         let width = 1024, height = 768;
         if (params.size) {
           const parts = params.size.split('x');
@@ -199,18 +248,15 @@ const server = http.createServer(async (req, res) => {
           height = parseInt(parts[1]) || 768;
         }
 
-        // 构建 workflow
         const workflow = buildWorkflow({
           prompt: params.prompt || params.text || '',
           negative: params.negative || '',
-          width,
-          height,
+          width, height,
           steps: params.steps || 20,
           cfg: params.cfg || 7,
           seed: params.seed
         });
 
-        // 提交到 ComfyUI
         const result = await comfyRequest('POST', '/prompt', JSON.stringify({ prompt: workflow }));
 
         if (!result.prompt_id) {
@@ -219,7 +265,6 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // 等待生成
         const image = await waitForCompletion(result.prompt_id);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -242,17 +287,83 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // 404
-  res.writeHead(404, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify({ error: 'not found' }));
+  // ============ 静态文件路由 ============
+
+  // /admin/ → 后台管理页面
+  if (pathname === '/admin/' || pathname === '/admin') {
+    serveAdminPage(res);
+    return;
+  }
+
+  // /admin/* → admin 静态文件
+  if (pathname.startsWith('/admin/')) {
+    const relPath = pathname.slice('/admin/'.length);
+    // 优先从 public/admin/ 找
+    let filePath = path.join(ADMIN_DIR, relPath);
+    if (fs.existsSync(filePath)) {
+      serveFile(res, filePath);
+      return;
+    }
+    // 再从 static/admin/ 找
+    filePath = path.join(STATIC_DIR, 'admin', relPath);
+    if (fs.existsSync(filePath)) {
+      serveFile(res, filePath);
+      return;
+    }
+    // 没找到就返回 admin 首页（SPA 兼容）
+    serveAdminPage(res);
+    return;
+  }
+
+  // /images/* → 图片
+  if (pathname.startsWith('/images/')) {
+    const relPath = pathname.slice('/images/'.length);
+    let filePath = path.join(IMAGES_DIR, relPath);
+    if (fs.existsSync(filePath)) {
+      serveFile(res, filePath);
+      return;
+    }
+    // 也试试 static/images/
+    filePath = path.join(STATIC_DIR, 'images', relPath);
+    if (fs.existsSync(filePath)) {
+      serveFile(res, filePath);
+      return;
+    }
+    // 也试试根目录的图片
+    filePath = path.join(__dirname, relPath);
+    if (fs.existsSync(filePath)) {
+      serveFile(res, filePath);
+      return;
+    }
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('404 图片未找到');
+    return;
+  }
+
+  // 根路径 → 重定向到 /admin/
+  if (pathname === '/') {
+    res.writeHead(302, { 'Location': '/admin/' });
+    res.end();
+    return;
+  }
+
+  // 其他路径 → 404
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+  res.end('404 未找到');
 });
 
+// ===== 启动 =====
+
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`\n  🎨 天地鲟鳇 · ComfyUI 代理服务器`);
-  console.log(`  ─────────────────────────────────`);
-  console.log(`  ✅ 代理运行于 http://127.0.0.1:${PORT}`);
-  console.log(`  🔗 ComfyUI     http://127.0.0.1:${COMFY_PORT}`);
-  console.log(`  📍 POST /generate  — 文生图`);
-  console.log(`  📍 GET  /health    — 健康检查`);
-  console.log(`\n  管理员请修改 admin.js 中 AI 配置指向此代理\n`);
+  console.log(`
+  ╔══════════════════════════════════════╗
+  ║   天地鲟鳇 · 本地后台 + AI 生图      ║
+  ╚══════════════════════════════════════╝
+
+  🔗 后台管理:  http://127.0.0.1:${PORT}/admin/
+  🤖 AI 生图:  内置（同源，无需额外配置）
+  ⚡ ComfyUI:   http://127.0.0.1:${COMFY_PORT}
+
+  提示：登录后台需要 GitHub Token
+  `);
 });
