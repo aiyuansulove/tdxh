@@ -161,9 +161,9 @@ function toast(msg, type='info', t=3500){
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), t);
 }
 
-// ===== AI 生图 =====
-const AI_ENDPOINT = 'https://apihub.agnes-ai.com/v1/images/generations';
-const AI_MODEL = 'agnes-image-2.1-flash';
+// ===== AI 生图（ComfyUI 本地） =====
+const AI_ENDPOINT = 'http://127.0.0.1:3457/generate';
+const AI_HEALTH = 'http://127.0.0.1:3457/health';
 
 function openAIImageGen(){
   showEditor('ai_image', 'AI 图像生成');
@@ -207,50 +207,53 @@ function openAIImageGen(){
   document.getElementById('aiPrompt').addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter') generateAIImage(); });
 }
 
-let lastAIImageUrl = '';
+let lastAIImageData = '';
 
 async function generateAIImage(){
   const prompt = document.getElementById('aiPrompt').value.trim();
   if(!prompt){ toast('⚠️ 请输入画面描述','error'); return; }
 
   const size = document.getElementById('aiSize').value;
-  const refImage = document.getElementById('aiRefImage').value.trim();
   const btn = document.getElementById('aiGenBtn');
   const resultDiv = document.getElementById('aiGenResult');
 
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> 生成中...（约 10-30 秒）';
+  btn.innerHTML = '<span class="spinner"></span> 生成中...（约 5-20 秒）';
   resultDiv.innerHTML = '<span class="placeholder"><span class="spinner"></span> 正在生成图片...</span>';
 
   try {
-    let body = { model: AI_MODEL, prompt, size };
+    // 先检查 ComfyUI 代理是否在线
+    let healthOk = false;
+    try {
+      const hRes = await fetch(AI_HEALTH);
+      const hData = await hRes.json();
+      if (hData.ok) healthOk = true;
+    } catch(e) {}
 
-    if (refImage) {
-      // 图生图
-      body.extra_body = { image: [refImage], response_format: 'url' };
-    } else {
-      // 文生图
-      body.extra_body = { response_format: 'url' };
+    if (!healthOk) {
+      throw new Error('ComfyUI 代理未运行。请在终端执行: node proxy-comfy.js');
     }
 
+    // 调用 ComfyUI 代理
     const res = await fetch(AI_ENDPOINT, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, size })
     });
 
     if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
 
     const data = await res.json();
-    const imageUrl = data.data?.[0]?.url;
+    const b64 = data.image?.b64;
 
-    if(imageUrl){
-      lastAIImageUrl = imageUrl;
-      resultDiv.innerHTML = `<img src="${imageUrl}" alt="AI 生成图片">`;
+    if(b64){
+      lastAIImageData = b64;
+      const mime = data.image?.mime || 'image/png';
+      resultDiv.innerHTML = `<img src="data:${mime};base64,${b64}" alt="AI 生成图片" style="max-width:100%">`;
       document.getElementById('aiGenActions').style.display = 'flex';
       toast('✅ 图片生成成功！','success');
     } else {
-      throw new Error('返回数据中未找到图片 URL');
+      throw new Error('返回数据中未找到图片');
     }
   } catch(e) {
     resultDiv.innerHTML = `<span class="placeholder" style="color:var(--danger)">❌ 生成失败：${e.message}</span>`;
@@ -262,21 +265,22 @@ async function generateAIImage(){
 }
 
 function copyAIImageUrl(){
-  if(!lastAIImageUrl) return;
-  navigator.clipboard.writeText(lastAIImageUrl).then(()=>{
-    toast('✅ 图片 URL 已复制到剪贴板','success');
+  if(!lastAIImageData) return;
+  const dataUrl = 'data:image/png;base64,' + lastAIImageData;
+  navigator.clipboard.writeText(dataUrl).then(()=>{
+    toast('✅ 图片 Data URL 已复制到剪贴板','success');
   }).catch(()=>{
-    // fallback
-    const ta = document.createElement('textarea');
-    ta.value = lastAIImageUrl; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
-    toast('✅ 图片 URL 已复制','success');
+    toast('⚠️ 复制失败，请手动截图保存','error');
   });
 }
 
 function downloadAIImage(){
-  if(!lastAIImageUrl) return;
-  window.open(lastAIImageUrl, '_blank');
-  toast('✅ 图片已在新标签页打开，右键可保存','success');
+  if(!lastAIImageData) return;
+  const a = document.createElement('a');
+  a.href = 'data:image/png;base64,' + lastAIImageData;
+  a.download = 'tdxh_ai_' + Date.now() + '.png';
+  a.click();
+  toast('✅ 图片已下载','success');
 }
 
 // ===== 侧边栏 =====
@@ -665,29 +669,45 @@ async function handleAIGenForField(btn){
   }
   if (!targetInput) { toast('⚠️ 找不到图片字段','error'); return; }
 
+  // 先检查 ComfyUI 代理是否在线
+  let healthOk = false;
+  try {
+    const hRes = await fetch(AI_HEALTH);
+    const hData = await hRes.json();
+    if (hData.ok) healthOk = true;
+  } catch(e) {}
+  if (!healthOk) {
+    toast('⚠️ ComfyUI 代理未运行: node proxy-comfy.js','error');
+    return;
+  }
+
   const userPrompt = prompt("🎨 输入AI生图的画面描述：", "");
   if (!userPrompt || !userPrompt.trim()) return;
   const sz = "1024x768";
-  btn.disabled = true;
   btn.disabled = true;
   const origText = btn.textContent;
   btn.textContent = '⏳';
 
   try {
-    const res = await fetch('https://apihub.agnes-ai.com/v1/images/generations', {
+    const res = await fetch(AI_ENDPOINT, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: AI_MODEL, prompt: userPrompt.trim(), sz, extra_body: { response_format: 'url' } })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: userPrompt.trim(), size: sz })
     });
     if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
     const data = await res.json();
-    const imgUrl = data.data?.[0]?.url;
-    if (!imgUrl) throw new Error('未获取到图片 URL');
+    const b64 = data.image?.b64;
+    if (!b64) throw new Error('未获取到图片');
 
-    targetInput.value = imgUrl;
+    // 上传到 GitHub
+    const blob = await (await fetch('data:image/png;base64,' + b64)).blob();
+    const file = new File([blob], 'ai_' + Date.now() + '.png', { type: 'image/png' });
+    const url = await api.upload(file);
+
+    targetInput.value = url;
     updateImagePreview(targetInput);
     state.changed = true;
-    toast('✅ AI 图片生成成功，已自动填入','success');
+    toast('✅ AI 图片生成成功，已自动上传并填入','success');
   } catch(e) {
     toast('❌ AI 生图失败：'+e.message,'error');
   } finally {
