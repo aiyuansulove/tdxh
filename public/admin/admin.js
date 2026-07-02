@@ -161,11 +161,9 @@ function toast(msg, type='info', t=3500){
   clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove('show'), t);
 }
 
-// ===== AI 生图（仅本地后台可用） =====
-// AI 生图需要本地的 ComfyUI，请通过 http://127.0.0.1:3457/admin/ 访问后台
-const AI_ENDPOINT = '/api/generate';
-const AI_HEALTH = '/api/health';
-const IS_LOCAL = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+// ===== AI 生图 =====
+const AI_ENDPOINT = 'https://apihub.agnes-ai.com/v1/images/generations';
+const AI_MODEL = 'agnes-image-2.1-flash';
 
 function openAIImageGen(){
   showEditor('ai_image', 'AI 图像生成');
@@ -173,7 +171,7 @@ function openAIImageGen(){
   $('commitMsg').style.display = 'none';
 
   const form = document.getElementById('sectionForm');
-  form.innerHTML = IS_LOCAL ? `
+  form.innerHTML = `
     <style>
       .ai-gen-container { max-width: 800px; margin: 0 auto; }
       .ai-gen-container textarea { width:100%; padding:12px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm); color:var(--text); font-size:.95em; outline:none; font-family:inherit; resize:vertical; min-height:80px; line-height:1.6; }
@@ -203,68 +201,56 @@ function openAIImageGen(){
         <button class="btn btn-outline" onclick="downloadAIImage()">💾 下载图片</button>
       </div>
     </div>
-  ` : `<div class="ai-gen-container" style="text-align:center;padding:40px 20px">
-    <p style="color:var(--gold);font-size:1.1em;margin-bottom:12px">🤖 AI 生图需要本地后台</p>
-    <p style="color:var(--text2);font-size:.85em;line-height:1.8">
-      请在终端执行：<br>
-      <code style="background:var(--bg2);padding:4px 10px;border-radius:4px;color:var(--gold)">node proxy-comfy.js</code><br><br>
-      然后访问<br>
-      <a href="http://127.0.0.1:3457/admin/" style="color:var(--gold)">http://127.0.0.1:3457/admin/</a><br><br>
-      使用 AI 生图功能
-    </p>
-  </div>`;
+  `;
 
-  document.getElementById('aiGenBtn')?.addEventListener('click', generateAIImage);
-  document.getElementById('aiPrompt')?.addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter') generateAIImage(); });
+  document.getElementById('aiGenBtn').addEventListener('click', generateAIImage);
+  document.getElementById('aiPrompt').addEventListener('keydown', e => { if((e.ctrlKey||e.metaKey)&&e.key==='Enter') generateAIImage(); });
 }
 
-let lastAIImageData = '';
+let lastAIImageUrl = '';
 
 async function generateAIImage(){
   const prompt = document.getElementById('aiPrompt').value.trim();
   if(!prompt){ toast('⚠️ 请输入画面描述','error'); return; }
 
   const size = document.getElementById('aiSize').value;
+  const refImage = document.getElementById('aiRefImage').value.trim();
   const btn = document.getElementById('aiGenBtn');
   const resultDiv = document.getElementById('aiGenResult');
 
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> 生成中...（约 5-20 秒）';
+  btn.innerHTML = '<span class="spinner"></span> 生成中...（约 10-30 秒）';
   resultDiv.innerHTML = '<span class="placeholder"><span class="spinner"></span> 正在生成图片...</span>';
 
   try {
-    // 先检查 ComfyUI 代理是否在线
-    let healthOk = false;
-    try {
-      const hRes = await fetch(AI_HEALTH);
-      const hData = await hRes.json();
-      if (hData.ok) healthOk = true;
-    } catch(e) {}
+    let body = { model: AI_MODEL, prompt, size };
 
-    if (!healthOk) {
-      throw new Error('ComfyUI 代理未运行。请在终端执行: node proxy-comfy.js');
+    if (refImage) {
+      // 图生图
+      body.extra_body = { image: [refImage], response_format: 'url' };
+    } else {
+      // 文生图
+      body.extra_body = { response_format: 'url' };
     }
 
-    // 调用 ComfyUI 代理
     const res = await fetch(AI_ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, size })
+      headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
     });
 
     if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
 
     const data = await res.json();
-    const b64 = data.image?.b64;
+    const imageUrl = data.data?.[0]?.url;
 
-    if(b64){
-      lastAIImageData = b64;
-      const mime = data.image?.mime || 'image/png';
-      resultDiv.innerHTML = `<img src="data:${mime};base64,${b64}" alt="AI 生成图片" style="max-width:100%">`;
+    if(imageUrl){
+      lastAIImageUrl = imageUrl;
+      resultDiv.innerHTML = `<img src="${imageUrl}" alt="AI 生成图片">`;
       document.getElementById('aiGenActions').style.display = 'flex';
       toast('✅ 图片生成成功！','success');
     } else {
-      throw new Error('返回数据中未找到图片');
+      throw new Error('返回数据中未找到图片 URL');
     }
   } catch(e) {
     resultDiv.innerHTML = `<span class="placeholder" style="color:var(--danger)">❌ 生成失败：${e.message}</span>`;
@@ -276,22 +262,21 @@ async function generateAIImage(){
 }
 
 function copyAIImageUrl(){
-  if(!lastAIImageData) return;
-  const dataUrl = 'data:image/png;base64,' + lastAIImageData;
-  navigator.clipboard.writeText(dataUrl).then(()=>{
-    toast('✅ 图片 Data URL 已复制到剪贴板','success');
+  if(!lastAIImageUrl) return;
+  navigator.clipboard.writeText(lastAIImageUrl).then(()=>{
+    toast('✅ 图片 URL 已复制到剪贴板','success');
   }).catch(()=>{
-    toast('⚠️ 复制失败，请手动截图保存','error');
+    // fallback
+    const ta = document.createElement('textarea');
+    ta.value = lastAIImageUrl; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    toast('✅ 图片 URL 已复制','success');
   });
 }
 
 function downloadAIImage(){
-  if(!lastAIImageData) return;
-  const a = document.createElement('a');
-  a.href = 'data:image/png;base64,' + lastAIImageData;
-  a.download = 'tdxh_ai_' + Date.now() + '.png';
-  a.click();
-  toast('✅ 图片已下载','success');
+  if(!lastAIImageUrl) return;
+  window.open(lastAIImageUrl, '_blank');
+  toast('✅ 图片已在新标签页打开，右键可保存','success');
 }
 
 // ===== 侧边栏 =====
@@ -666,15 +651,11 @@ function renderField(f,data,isArr,idx,parentKey){
 
 // ===== AI 生图 → 直接填充图片字段 =====
 async function handleAIGenForField(btn){
-  if (!IS_LOCAL) {
-    toast('⚠️ AI 生图仅限本地后台使用 (http://127.0.0.1:3457/admin/)','error');
-    return;
-  }
+  const key=btn.dataset.key;        // 图片字段名
+  const idx=btn.dataset.idx;        // 数组索引
+  const arrItem=btn.dataset.arrItem; // 数组内索引
 
-  const key=btn.dataset.key;
-  const idx=btn.dataset.idx;
-  const arrItem=btn.dataset.arrItem;
-
+  // 找到目标输入框
   let targetInput;
   if (idx !== undefined || arrItem !== undefined) {
     const i = idx || arrItem;
@@ -688,29 +669,25 @@ async function handleAIGenForField(btn){
   if (!userPrompt || !userPrompt.trim()) return;
   const sz = "1024x768";
   btn.disabled = true;
+  btn.disabled = true;
   const origText = btn.textContent;
   btn.textContent = '⏳';
 
   try {
-    const res = await fetch(AI_ENDPOINT, {
+    const res = await fetch('https://apihub.agnes-ai.com/v1/images/generations', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: userPrompt.trim(), size: sz })
+      headers: { 'Authorization': `Bearer ${AI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: AI_MODEL, prompt: userPrompt.trim(), sz, extra_body: { response_format: 'url' } })
     });
     if(!res.ok){ const e=await res.json().catch(()=>({message:res.statusText})); throw new Error(e.message); }
     const data = await res.json();
-    const b64 = data.image?.b64;
-    if (!b64) throw new Error('未获取到图片');
+    const imgUrl = data.data?.[0]?.url;
+    if (!imgUrl) throw new Error('未获取到图片 URL');
 
-    // 上传到 GitHub
-    const blob = await (await fetch('data:image/png;base64,' + b64)).blob();
-    const file = new File([blob], 'ai_' + Date.now() + '.png', { type: 'image/png' });
-    const url = await api.upload(file);
-
-    targetInput.value = url;
+    targetInput.value = imgUrl;
     updateImagePreview(targetInput);
     state.changed = true;
-    toast('✅ AI 图片生成成功，已自动上传并填入','success');
+    toast('✅ AI 图片生成成功，已自动填入','success');
   } catch(e) {
     toast('❌ AI 生图失败：'+e.message,'error');
   } finally {
